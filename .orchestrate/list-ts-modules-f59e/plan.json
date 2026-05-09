@@ -1,0 +1,49 @@
+{
+  "$schema": "/home/ubuntu/.cursor/plugins/cache/cursor-public/9333/d1cdb88a9eb33cf392395c87e3fd76419fc1010e/skills/orchestrate/schemas/plan.schema.json",
+  "goal": "List all TypeScript files and explain what each module does",
+  "summary": "inventory every .ts/.tsx module in the repo and document its purpose",
+  "rootSlug": "list-ts-modules-f59e",
+  "baseBranch": "main",
+  "repoUrl": "https://github.com/lucking7/leveling.zone",
+  "selfAgentId": "bc-2c6c4f37-ced6-47e4-8faf-50598506f59e",
+  "syncStateToGit": true,
+  "tasks": [
+    {
+      "name": "inventory-modules",
+      "type": "worker",
+      "scopedGoal": "Produce a complete inventory of every TypeScript source file (`*.ts` and `*.tsx`, excluding `*.d.ts` ambient declarations only when they're trivially re-exports — still include them and label as type declarations) in the leveling.zone repository, with a one-paragraph (2-4 sentence) explanation of what each module does. Read every TS/TSX file before describing it; do not guess from filenames alone. Group entries by top-level directory (`src/app/`, `src/app/api/`, `src/components/`, `src/lib/`, `src/utils/`, `src/types/`, `src/services/`, `src/scripts/`, `src/constants/`, and any root-level files like `route.ts`, `layout.tsx`, `page.tsx`). Within each group, sort alphabetically. For each file include: the path, a short label (e.g. `Next.js route handler`, `React component`, `utility module`, `type declaration`, `Node CLI script`), and the 2-4 sentence explanation covering what it exports, who calls it, and any notable side effects (file I/O, network, env reads, etc.). At the top of the report add a one-paragraph repository overview synthesizing the codebase's purpose based on what you read (do not invent context not present in the files). Write the report to `docs/typescript-modules.md`, commit it to the worker branch with message `docs: inventory TypeScript modules`, and push. Open a draft PR titled `docs: inventory TypeScript modules` against `main` describing the report and listing the file count. In the handoff `## What I did` and `## Notes`, include the per-directory file counts and any notable observations (duplicate files, unused modules, suspicious patterns) so the planner can summarize for the user without re-reading the entire report. Do not modify any TS/TSX source files; this is a documentation-only task.",
+      "pathsAllowed": [
+        "docs/**"
+      ],
+      "pathsForbidden": [
+        "src/**",
+        "*.ts",
+        "*.tsx",
+        "package.json",
+        "package-lock.json"
+      ],
+      "acceptance": [
+        "`docs/typescript-modules.md` exists on the worker branch and is committed",
+        "Every `*.ts` and `*.tsx` file under the repo (including root-level `route.ts`, `layout.tsx`, `page.tsx` and `page.tsx.new`) appears as an entry in the report",
+        "Each entry has a path, a short label, and a 2-4 sentence explanation grounded in the file's actual contents",
+        "Entries are grouped by top-level directory and sorted alphabetically inside each group",
+        "Report opens with a one-paragraph repository overview synthesizing what the codebase does",
+        "Worker handoff includes per-directory file counts in `## Notes` so the planner can reuse them in the user-facing answer",
+        "Draft PR titled `docs: inventory TypeScript modules` is open against `main`"
+      ],
+      "openPR": true,
+      "model": "gpt-5.5-high-fast",
+      "maxAttempts": 2,
+      "measurements": [
+        {
+          "name": "ts-file-count",
+          "command": "git ls-files '*.ts' '*.tsx' | wc -l"
+        },
+        {
+          "name": "report-entry-count",
+          "command": "grep -c '^### ' docs/typescript-modules.md || true"
+        }
+      ]
+    }
+  ]
+}
