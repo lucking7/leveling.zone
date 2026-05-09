@@ -1,0 +1,26 @@
+{
+  "$schema": "/home/ubuntu/.cursor/plugins/cache/cursor-public/9333/d1cdb88a9eb33cf392395c87e3fd76419fc1010e/skills/orchestrate/schemas/plan.schema.json",
+  "goal": "Say hello and list what skills you have access to from the orchestrate plugin",
+  "summary": "smoke test of the orchestrate substrate: greet and enumerate plugin skills",
+  "rootSlug": "orchestrate-skills",
+  "baseBranch": "cursor/orchestrate-smoke-test-4a62",
+  "repoUrl": "https://github.com/lucking7/leveling.zone",
+  "selfAgentId": "bc-5c4f3afb-6647-4e63-8a18-56419c224a62",
+  "syncStateToGit": true,
+  "tasks": [
+    {
+      "name": "say-hello-list-skills",
+      "type": "worker",
+      "scopedGoal": "Produce two artifacts in your handoff body and commit nothing else.\n\n1. A friendly one-line greeting addressed to the orchestrate run thread.\n\n2. An exhaustive list of every skill packaged in the orchestrate plugin (the cursor-public/orchestrate plugin), with a one-line description of each. Source of truth: every directory under `<plugin-root>/skills/` that contains a `SKILL.md`. The plugin lives under `/home/ubuntu/.cursor/plugins/cache/cursor-public/<id>/<sha>/` on the cloud-agent VM. Resolve the directory at runtime — do not hard-code paths from this scoped goal. Use `find /home/ubuntu/.cursor/plugins -maxdepth 6 -name SKILL.md` (or equivalent) and read the YAML frontmatter (`name:` and `description:`) of each match. Do not invent skills, do not include skills from other plugins, and do not infer skills from references inside SKILL bodies — only the directories that physically contain a SKILL.md file count as a skill.\n\nReport the absolute plugin root you resolved, the count of SKILL.md files found, and the list of `name — description` pairs sourced verbatim from the frontmatter. If the plugin contains exactly one skill, say so explicitly so the planner can confirm the substrate's discovery boundary.\n\nNo code changes, no PR, no branch work. This task exists to exercise the orchestrate spawn/wait/handoff loop and to confirm the planner's pre-spawn discovery against an independent worker.",
+      "pathsAllowed": [],
+      "pathsForbidden": ["**"],
+      "acceptance": [
+        "Handoff includes a greeting line.",
+        "Handoff includes the absolute plugin root path that was resolved at runtime.",
+        "Handoff lists every directory under that plugin root containing a SKILL.md, one entry per skill, with name and description from the SKILL.md YAML frontmatter.",
+        "Handoff explicitly states the total count of SKILL.md files found.",
+        "No files in the host repo are modified; the worker pushes an empty branch (or no branch)."
+      ]
+    }
+  ]
+}
