@@ -42,7 +42,15 @@ next-env.d.ts
 *.ipdb
 *.bin
 *.csv
+!Dockerfile.ipdb
 
 # IDE
 .idea
 .vscode
+
+# Managed database snapshots and Python tooling
+/public/db/
+*.BIN
+.venv*/
+__pycache__/
+*.pyc

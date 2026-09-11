@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "databases": [
+    {
+      "id": "geolite2-asn",
+      "filename": "GeoLite2-ASN.mmdb",
+      "url": "https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-ASN.mmdb",
+      "format": "mmdb"
+    },
+    {
+      "id": "geolite2-city",
+      "filename": "GeoLite2-City.mmdb",
+      "url": "https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb",
+      "format": "mmdb"
+    },
+    {
+      "id": "geolite2-country",
+      "filename": "GeoLite2-Country.mmdb",
+      "url": "https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb",
+      "format": "mmdb"
+    },
+    {
+      "id": "dbip-asn",
+      "filename": "dbip-asn-lite.mmdb",
+      "url": "https://download.db-ip.com/free/dbip-asn-lite-{YYYY-MM}.mmdb.gz",
+      "format": "mmdb",
+      "compression": "gzip"
+    },
+    {
+      "id": "dbip-city",
+      "filename": "dbip-city-lite.mmdb",
+      "url": "https://download.db-ip.com/free/dbip-city-lite-{YYYY-MM}.mmdb.gz",
+      "format": "mmdb",
+      "compression": "gzip"
+    },
+    {
+      "id": "dbip-country",
+      "filename": "dbip-country-lite.mmdb",
+      "url": "https://download.db-ip.com/free/dbip-country-lite-{YYYY-MM}.mmdb.gz",
+      "format": "mmdb",
+      "compression": "gzip"
+    },
+    {
+      "id": "ip2location-db11",
+      "filename": "IP2LOCATION-LITE-DB11.BIN",
+      "url": "https://www.ip2location.com/download/?token=${IP2LOCATION_TOKEN}&file=DB11LITEBIN",
+      "format": "ip2location",
+      "compression": "auto",
+      "member": "IP2LOCATION-LITE-DB11.BIN",
+      "tokenEnv": "IP2LOCATION_TOKEN"
+    },
+    {
+      "id": "ip2location-px11",
+      "filename": "IP2LOCATION-LITE-PX11.BIN",
+      "url": "https://www.ip2location.com/download/?token=${IP2LOCATION_TOKEN}&file=PX11LITEBIN",
+      "format": "ip2proxy",
+      "compression": "auto",
+      "member": "IP2PROXY-LITE-PX11.BIN",
+      "tokenEnv": "IP2LOCATION_TOKEN"
+    },
+    {
+      "id": "ip2location-asn",
+      "filename": "IP2LOCATION-LITE-ASN.BIN",
+      "url": "https://www.ip2location.com/download/?token=${IP2LOCATION_TOKEN}&file=DBASNLITEBIN",
+      "format": "ip2location",
+      "compression": "auto",
+      "member": "IP2LOCATION-LITE-ASN.BIN",
+      "tokenEnv": "IP2LOCATION_TOKEN"
+    },
+    {
+      "id": "ipinfo",
+      "filename": "ipinfo-country_asn.mmdb",
+      "url": "https://ipinfo.io/data/free/country_asn.mmdb?token=${IPINFO_TOKEN}",
+      "format": "mmdb",
+      "compression": "auto",
+      "tokenEnv": "IPINFO_TOKEN"
+    },
+    {
+      "id": "qqwry",
+      "filename": "qqwry.ipdb",
+      "url": "https://unpkg.com/qqwry.ipdb/qqwry.ipdb",
+      "format": "ipdb"
+    },
+    {
+      "id": "iptoasn",
+      "filename": "iptoasn-asn-ipv4.mmdb",
+      "url": "https://github.com/sapics/ip-location-db/releases/download/latest/iptoasn-asn-ipv4.mmdb",
+      "format": "mmdb"
+    },
+    {
+      "id": "as-info",
+      "filename": "as-info.csv",
+      "url": "https://raw.githubusercontent.com/ipverse/as-metadata/master/as.csv",
+      "format": "csv",
+      "columns": [
+        "asn",
+        "handle",
+        "description",
+        "country-code"
+      ],
+      "header": true
+    },
+    {
+      "id": "geocn",
+      "filename": "geocn.mmdb",
+      "url": "https://github.com/ljxi/GeoCN/releases/latest/download/GeoCN.mmdb",
+      "format": "mmdb"
+    }
+  ]
+}

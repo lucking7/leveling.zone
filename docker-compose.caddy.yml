@@ -1,34 +1,30 @@
-version: '3.8'
-
 services:
-  # Next.js应用
   app:
     build: .
     container_name: leveling-zone-app
     restart: unless-stopped
     environment:
-      - NODE_ENV=production
-      - VERCEL=0
+      NODE_ENV: production
+      IPDB_AUTO_INSTALL: '1'
+      IPDB_REPO: lucking7/leveling.zone
     volumes:
       - ./data/db:/app/data/db
-      - ./public/db:/app/public/db
     networks:
       - caddy-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
-  # Caddy反向代理
   caddy:
     image: caddy:2-alpine
     container_name: leveling-zone-caddy
     restart: unless-stopped
     ports:
-      - "80:80"      # HTTP
-      - "443:443"    # HTTPS
+      - "80:80"
+      - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -40,28 +36,23 @@ services:
       app:
         condition: service_healthy
     environment:
-      - CADDY_ADMIN=0.0.0.0:2019
+      CADDY_ADMIN: 0.0.0.0:2019
 
-  # 可选：数据库文件下载器（首次部署时）
-  db-downloader:
-    build: .
-    container_name: leveling-zone-downloader
-    command: npm run download-db-local
+  # Explicit opt-in updater: docker compose -f docker-compose.caddy.yml run --rm db-updater
+  db-updater:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: Dockerfile.ipdb
+    command: ["install", "--repo", "lucking7/leveling.zone", "--store", "/data"]
     volumes:
-      - ./data/db:/app/data/db
-    environment:
-      - NODE_ENV=production
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-    networks:
-      - caddy-net
-    restart: "no"  # 只运行一次
+      - ./data/db:/data
+    restart: "no"
 
 volumes:
   caddy_data:
-    driver: local
   caddy_config:
-    driver: local
 
 networks:
   caddy-net:
-    driver: bridge 
+    driver: bridge

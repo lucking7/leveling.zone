@@ -2,30 +2,51 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { countryToFlag } from '@/utils/country';
-import { LevelingLogo, LevelingLogoText } from '@/components/ui/logo';
+import { LevelingLogoText } from '@/components/ui/logo';
 import { Particles } from '@/components/ui/particles';
 import { useTheme } from "next-themes";
 import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button';
+import { displaySourceName, sourceRegion } from '@/modules/observation/catalog';
+import type { ObservationSourceData, ObservationSummary } from '@/modules/observation';
 
 interface IPInfo {
   ip: string;
-  location?: {
-    country?: string;
-    country_code?: string;
-    region?: string;
-    city?: string;
-    latitude?: number;
-    longitude?: number;
-    area_name?: string;
-    detail?: string;
-  };
-  network?: {
-    asn?: string;
-    org?: string;
-    isp?: string;
-  };
-  sources?: {
-    [key: string]: any;
+  ipSource?: string;
+  sources?: Record<string, ObservationSourceData>;
+  observation?: ObservationSummary;
+}
+
+function asText(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  return String(value);
+}
+
+function presentSource(data: ObservationSourceData) {
+  const asn = asText(data.network?.asn);
+  const organization = asText(data.network?.organization);
+  const isp = asText(data.network?.isp);
+  const network = asn
+    ? `${asn.toUpperCase().startsWith('AS') ? asn : `AS${asn}`}${organization ? ` | ${organization}` : ''}${isp ? ` | ${isp}` : ''}`
+    : isp || organization || '-';
+  const location = data.location
+    ? [
+        data.location.country,
+        data.location.province || data.location.region,
+        data.location.city,
+        data.location.district,
+        data.location.area_name,
+        data.location.detail,
+      ]
+        .map(asText)
+        .filter((item) => item && item !== '-')
+        .join(' • ') || '-'
+    : '-';
+
+  return {
+    ip: data.ip && data.ip !== '::1' ? data.ip : '-',
+    network,
+    location,
+    countryCode: asText(data.location?.country_code),
   };
 }
 
@@ -128,9 +149,23 @@ function MyIPContent() {
             <div className="container mx-auto px-4 md:px-8 lg:px-16 xl:px-32">
               <div className="text-center mb-8">
                 <div className="text-4xl font-bold mb-4">{ipInfo.ip}</div>
-                {ipInfo.location?.country_code && (
-                  <div className="text-xl">
-                    {countryToFlag(ipInfo.location.country_code)} {ipInfo.location.country}
+                <p className="mx-auto max-w-3xl text-sm leading-6 text-gray-500">
+                  此地址由本站接收的访问请求报告{ipInfo.ipSource ? `（来源：${ipInfo.ipSource}）` : ''}。
+                  标记为“请求 IP”的数据源查询该地址，标记为“服务器出口”的数据源观测本站服务器发起上游请求时使用的出口地址。
+                </p>
+                {ipInfo.observation && (
+                  <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-600">
+                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">
+                      请求 IP {ipInfo.observation.requestIpSourceCount}
+                    </span>
+                    <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">
+                      服务器出口 {ipInfo.observation.serverEgressSourceCount}
+                    </span>
+                    {ipInfo.observation.failures.length > 0 && (
+                      <span className="rounded-full bg-neutral-100 px-3 py-1">
+                        暂不可用 {ipInfo.observation.failures.length}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -140,6 +175,7 @@ function MyIPContent() {
                   <thead>
                     <tr className="text-left border-b border-gray-200">
                       <th className="py-3 pr-4 font-medium text-sm text-gray-500 w-[180px]">数据源</th>
+                      <th className="py-3 px-4 font-medium text-sm text-gray-500 w-[120px]">观测范围</th>
                       <th className="py-3 px-4 font-medium text-sm text-gray-500 w-[140px]">IP</th>
                       <th className="py-3 px-4 font-medium text-sm text-gray-500 w-[250px]">运营商</th>
                       <th className="py-3 pl-4 font-medium text-sm text-gray-500">地址</th>
@@ -148,136 +184,28 @@ function MyIPContent() {
                   <tbody>
                     {ipInfo.sources && Object.entries(ipInfo.sources)
                       .sort(([sourceA], [sourceB]) => {
-                        const sourceMap: { [key: string]: string } = {
-                          // 中国数据源
-                          'qifu': '🇨🇳 百度企服',
-                          'meitu': '🇨🇳 美图IP',
-                          'pconline': '🇨🇳 太平洋IP',
-                          'ipip': '🇨🇳 IPIP.NET',
-                          'vore': '🇨🇳 VORE-API',
-                          'toutiao': '🇨🇳 今日头条',
-                          'upyun': '🇨🇳 又拍云',
-                          'visacn': '🇨🇳 Visa CN',
-                          'tencentjsonp': '🇨🇳 腾讯',
-                          'qqnews': '🇨🇳 腾讯新闻',
-                          'zhale': '🇨🇳 ZHALE.ME',
-                          'zxinc': '🇨🇳 ZXINC',
-                          'amap': '🇨🇳 高德地图',
-                          'meituan': '🇨🇳 Honeypot',
-                          // 国际数据源
-                          'cloudflare': '☁️ Cloudflare',
-                          'cloudflareipv4': '🌏 Cloudflare IPv4',
-                          'identme': '🌐 ident.me',
-                          'useragentinfo': '🔍 UserAgent.info',
-                          'httpbin': '🌍 httpbin.org',
-                          'ipsb': '🌐 IP.SB',
-                          'ipapis': '🔎 IPAPI.is',
-                          'ipapico': '🌍 ipapi.co',
-                          'realip': '🌏 RealIP.cc',
-                          'iplark': '🦅 IPLark',
-                          'ipquery': '🌏 ipquery.io',
-                          'apipcc': '🌍 APIP.CC',
-                          'ip138': '🌐 IP138.xyz',
-                          'ping0': '🌐 Ping0.cc',
-                          'leak': '🔍 地址泄露检测',
-                          'vercelip': '🌏 Vercel',
-                          'apnic': '🌏 APNIC',
-                          'discord': '🌏 Discord',
-                          'claude': '🌏 Claude',
-                          'chatgpt': '🌏 ChatGPT',
-                          'surfshark': '🌏 Surfshark',
-                          'netlify': '🌏 Netlify'
-                        };
-                        
-                        const nameA = sourceMap[sourceA] || sourceA;
-                        const nameB = sourceMap[sourceB] || sourceB;
-                        
-                        // 如果都是中国数据源或都不是中国数据源，按原始顺序排序
-                        const isChineseA = nameA.includes('🇨🇳');
-                        const isChineseB = nameB.includes('🇨🇳');
-                        
-                        if (isChineseA && !isChineseB) return -1;
-                        if (!isChineseA && isChineseB) return 1;
+                        const regionA = sourceRegion(sourceA);
+                        const regionB = sourceRegion(sourceB);
+                        if (regionA === regionB) return 0;
+                        if (regionA === 'china') return -1;
+                        if (regionB === 'china') return 1;
                         return 0;
                       })
-                      .map(([source, data]: [string, any]) => {
-                        const getSourceName = (source: string) => {
-                          const sourceMap: { [key: string]: string } = {
-                            // 中国数据源
-                            'qifu': '🇨🇳 百度企服',
-                            'meitu': '🇨🇳 美图IP',
-                            'pconline': '🇨🇳 太平洋IP',
-                            'ipip': '🇨🇳 IPIP.NET',
-                            'vore': '🇨🇳 VORE-API',
-                            'toutiao': '🇨🇳 今日头条',
-                            'upyun': '🇨🇳 又拍云',
-                            'visacn': '🇨🇳 Visa CN',
-                            'tencentjsonp': '🇨🇳 腾讯',
-                            'qqnews': '🇨🇳 腾讯新闻',
-                            'zhale': '🇨🇳 ZHALE.ME',
-                            'zxinc': '🇨🇳 ZXINC',
-                            'amap': '🇨🇳 高德地图',
-                            'meituan': '🇨🇳 Honeypot',
-                            // 国际数据源
-                            'cloudflare': '☁️ Cloudflare',
-                            'cloudflareipv4': '🌏 Cloudflare IPv4',
-                            'identme': '🌐 ident.me',
-                            'useragentinfo': '🔍 UserAgent.info',
-                            'httpbin': '🌍 httpbin.org',
-                            'ipsb': '🌐 IP.SB',
-                            'ipapis': '🔎 IPAPI.is',
-                            'ipapico': '🌍 ipapi.co',
-                            'realip': '🌏 RealIP.cc',
-                            'iplark': '🦅 IPLark',
-                            'ipquery': '🌏 ipquery.io',
-                            'apipcc': '🌍 APIP.CC',
-                            'ip138': '🌐 IP138.xyz',
-                            'ping0': '🌐 Ping0.cc',
-                            'leak': '🔍 地址泄露检测',
-                            'vercelip': '🌏 Vercel',
-                            'apnic': '🌏 APNIC',
-                            'discord': '🌏 Discord',
-                            'claude': '🌏 Claude',
-                            'chatgpt': '🌏 ChatGPT',
-                            'surfshark': '🌏 Surfshark',
-                            'netlify': '🌏 Netlify'
-                          };
-                          return sourceMap[source] || source;
-                        };
-
-                        const getSourceData = (data: any) => {
-                          // 优先使用API返回的IP信息，如果没有则显示'-'
-                          const ip = data.ip && data.ip !== '::1' ? data.ip : '-';
-                          
-                          const network = data.network?.asn ? 
-                            `AS${data.network.asn}${data.network.organization ? ` | ${data.network.organization}` : ''}${data.network.isp ? ` | ${data.network.isp}` : ''}` : 
-                            (data.network?.isp || '-');
-                          
-                          const location = data.location ? [
-                            data.location.country,
-                            data.location.province || data.location.region,
-                            data.location.city,
-                            data.location.district,
-                            data.location.area_name,
-                            data.location.detail
-                          ].filter(item => Boolean(item) && item !== '-').join(' • ') : '-';
-
-                          // 提取国家代码
-                          const countryCode = data.location?.country_code || '';
-
-                          return {
-                            ip,
-                            network,
-                            location,
-                            countryCode
-                          };
-                        };
-
-                        const sourceData = getSourceData(data);
+                      .map(([source, data]) => {
+                        const sourceData = presentSource(data);
 
                         return (
                           <tr key={source} className="border-t border-gray-200 hover:bg-gray-50">
-                            <td className="py-3 pr-4 text-sm text-gray-500">{getSourceName(source)}</td>
+                            <td className="py-3 pr-4 text-sm text-gray-500">{displaySourceName(source)}</td>
+                            <td className="py-3 px-4 text-sm">
+                              <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs ${
+                                data.observation.scope === 'request-ip'
+                                  ? 'bg-indigo-50 text-indigo-700'
+                                  : 'bg-amber-50 text-amber-700'
+                              }`}>
+                                {data.observation.scope === 'request-ip' ? '请求 IP' : '服务器出口'}
+                              </span>
+                            </td>
                             <td className="py-3 px-4 text-sm">
                               <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-100 text-neutral-500">
                                 {sourceData.ip}

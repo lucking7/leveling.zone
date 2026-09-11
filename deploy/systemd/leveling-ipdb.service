@@ -1,0 +1,19 @@
+[Unit]
+Description=Update validated IP databases
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=leveling
+Group=leveling
+WorkingDirectory=/opt/leveling.zone
+EnvironmentFile=-/etc/leveling-ipdb.env
+ExecStart=/opt/leveling.zone/.venv-ipdb/bin/python scripts/ipdb.py update --config config/databases.json --store /var/lib/leveling-ipdb
+TimeoutStartSec=3600
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/leveling-ipdb

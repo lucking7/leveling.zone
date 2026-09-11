@@ -26,6 +26,11 @@ localhost, 127.0.0.1 {
         reverse_proxy localhost:3000
     }
 
+    # /ip/query redirects to the application root with the IP query string.
+    handle / {
+        reverse_proxy localhost:3000
+    }
+
     # 其他路径显示404
     handle /* {
         respond "Page not found - Available paths: /ip, /ip/query" 404

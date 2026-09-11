@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY scripts/requirements-ipdb.txt scripts/requirements-ipdb.txt
+RUN pip install --no-cache-dir -r scripts/requirements-ipdb.txt
+COPY scripts/ipdb.py scripts/ipdb.py
+COPY config/databases.json config/databases.json
+VOLUME ["/data"]
+ENTRYPOINT ["python", "scripts/ipdb.py"]
+CMD ["update", "--config", "config/databases.json", "--store", "/data"]

@@ -8,26 +8,14 @@ import { Particles } from '@/components/ui/particles';
 import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button';
 import { GlowingSearch } from '@/components/ui/glowing-search';
 import { Search } from 'lucide-react';
+import type { QueryResult } from '@/modules/query/types';
 
-// IP 验证函数
-const isValidIP = (ip: string) => {
-  // IPv4 验证
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  if (ipv4Regex.test(ip)) {
-    const parts = ip.split('.');
-    return parts.every(part => {
-      const num = parseInt(part, 10);
-      return num >= 0 && num <= 255;
-    });
-  }
-  
-  // IPv6 验证
-  const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
-  return ipv6Regex.test(ip);
-};
+// The server validates complete IPv4/IPv6 syntax; do not reject compressed IPv6 here.
+const isValidIP = (ip: string) => Boolean(ip.trim()) && /^[0-9a-fA-F:.]+$/.test(ip);
 
 // 添加国旗转换函数
 const countryToFlag = (countryCode: string) => {
+  if (!/^[A-Za-z]{2}$/.test(countryCode)) return '';
   const codePoints = countryCode
     .toUpperCase()
     .split('')
@@ -36,11 +24,7 @@ const countryToFlag = (countryCode: string) => {
 };
 
 // 添加随机IP生成函数
-const getRandomIP = () => {
-  const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  const num = nums[Math.floor(Math.random() * nums.length)];
-  return `${num}${num}${num}.${num}${num}${num}.${num}${num}${num}.${num}${num}${num}`;
-};
+const getRandomIP = () => ['1.1.1.1', '8.8.8.8', '9.9.9.9'][Math.floor(Math.random() * 3)];
 
 export default function Home() {
   return (
@@ -55,7 +39,8 @@ function HomeContent() {
   const [ipAddress, setIpAddress] = useState('22.22.22.22');
   const [isLoading, setIsLoading] = useState(false);
   const [isValid, setIsValid] = useState(true);
-  const [queryResult, setQueryResult] = useState<any>(null);
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
+  const [queryError, setQueryError] = useState('');
   const { theme } = useTheme();
   const [particleColor, setParticleColor] = useState("#ffffff");
 
@@ -80,51 +65,20 @@ function HomeContent() {
   }, [ipAddress]);
 
   const handleSearch = async (ip?: string) => {
-    const targetIp = ip || ipAddress;
-    if (!targetIp || !isValid) return;
+    const targetIp = (ip || ipAddress).trim();
+    if (!isValidIP(targetIp)) return;
     setIsLoading(true);
+    setQueryError('');
+    setQueryResult(null);
     try {
-      // 获取主要数据源
-      const mainResponse = await fetch(`/api/ip/${targetIp}`);
-      const mainData = await mainResponse.json();
-      
-      // 获取额外数据源
-      const extraSources = ['ipbase', 'ipdata', 'ipquery', 'ipregistry', 'ip2location_io'];
-      const extraDataPromises = extraSources.map(async (source) => {
-        try {
-          const response = await fetch(`/api/ip/${source}/${targetIp}`);
-          if (response.ok) {
-            const data = await response.json();
-            return { source, data };
-          }
-        } catch (error) {
-          console.error(`${source} 查询失败:`, error);
-        }
-        return null;
-      });
-
-      const extraResults = await Promise.all(extraDataPromises);
-      
-      // 合并数据源
-      const combinedSources = { ...mainData.sources };
-      extraResults.forEach((result) => {
-        if (result && result.data) {
-          combinedSources[result.source] = result.data;
-        }
-      });
-
-      setQueryResult({
-        ...mainData,
-        sources: combinedSources
-      });
-      
-      // 更新 URL，但不刷新页面
-      window.history.pushState({}, '', `/?ip=${targetIp}`);
+      const response = await fetch(`/api/ip/${encodeURIComponent(targetIp)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '没有可用的查询结果，请稍后重试');
+      setQueryResult(data);
+      window.history.pushState({}, '', `/?ip=${encodeURIComponent(targetIp)}`);
     } catch (error) {
-      console.error('查询失败:', error);
-    } finally {
-      setIsLoading(false);
-    }
+      setQueryError(error instanceof Error ? error.message : '查询失败');
+    } finally { setIsLoading(false); }
   };
 
   // 只在按回车时触发查询
@@ -270,6 +224,8 @@ function HomeContent() {
             </form>
           </div>
 
+          {queryError && <p role="alert" className="container mx-auto px-4 pb-6 text-red-600">{queryError}</p>}
+          {queryResult?.status === 'partial' && <p role="status" className="container mx-auto px-4 pb-4 text-gray-500">部分数据源暂不可用，以下为已获得的结果。</p>}
           {/* 查询结果区域 */}
           {queryResult && (
             <div className="container mx-auto px-4 md:px-8 lg:px-16 xl:px-32 mb-32">
@@ -284,140 +240,15 @@ function HomeContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(queryResult.sources).map(([source, data]: [string, any]) => {
-                      // 格式化数据源名称
-                      const getSourceName = (source: string) => {
-                        const sourceMap: { [key: string]: string } = {
-                          'maxmind': '🌏 MaxMind数据库',
-                          'ip2location': '🌏 IP2Location数据库',
-                          'dbip': '🌏 DB-IP数据库',
-                          'ipinfo': '🌏 IPinfo数据库',
-                          'iptoasn': '🌏 IPtoASN数据库',
-                          'asnInfo': '🌏 ASN-Info数据库',
-                          'qqwry': '🇨🇳 纯真 IP数据库',
-                          'geocn': '🇨🇳 GeoCN数据库',
-                          'ipdata': '🌏 ipdata.co',
-                          'ipbase': '🌏 ipbase.com',
-                          'ipquery': '🌏 ipquery.io',
-                          'ipregistry': '🌏 ipregistry.io',
-                          'ip2location_io': '🌏 ip2location.io'
-                        };
-                        return sourceMap[source] || source;
-                      };
-
-                      // 统一 ASN 信息格式
-                      let asnInfo = '';
-                      if (source === 'iptoasn' && data.network) {
-                        const asn = data.network.asn?.toString().replace(/^AS?/, '');
-                        asnInfo = `AS${asn} | ${data.network.organization || '-'}`;
-                      } else if (source === 'asnInfo' && data.network) {
-                        const asn = data.network.asn?.toString().replace(/^AS?/, '');
-                        asnInfo = `AS${asn} | ${data.network.handle}${data.network.description ? ` (${data.network.description})` : ''}`;
-                      } else if (source === 'ipdata' && data.asn) {
-                        const asn = data.asn.asn?.toString().replace(/^AS?/, '');
-                        asnInfo = `AS${asn} | ${data.asn.name}${data.asn.domain ? ` (${data.asn.domain})` : ''}`;
-                      } else if (source === 'ipbase' && data.data?.connection) {
-                        const conn = data.data.connection;
-                        asnInfo = `AS${conn.asn} | ${conn.organization}${conn.isp && conn.isp !== conn.organization ? ` (${conn.isp})` : ''}`;
-                      } else if (source === 'ipregistry' && data.connection) {
-                        asnInfo = `AS${data.connection.asn} | ${data.connection.organization}${data.connection.domain ? ` (${data.connection.domain})` : ''}`;
-                      } else if (source === 'ipquery' && data.isp) {
-                        asnInfo = `AS${data.isp.asn?.replace(/^AS/, '')} | ${data.isp.org}${data.isp.isp && data.isp.isp !== data.isp.org ? ` (${data.isp.isp})` : ''}`;
-                      } else if (data.network?.asn) {
-                        const asn = data.network.asn.toString().replace(/^AS?/, '');
-                        let org = '';
-                        if (data.network.organization) {
-                          org = data.network.organization;
-                        } else if (data.meta?.organization?.name) {
-                          org = data.meta.organization.name;
-                        } else if (data.network.name) {
-                          org = data.network.name;
-                        }
-                        asnInfo = `AS${asn} | ${org || '-'}`;
-                      } else if (data.network?.isp) {
-                        asnInfo = data.network.isp;
-                      } else if (source === 'ip2location_io' && data.network) {
-                        const asn = data.network.asn?.toString().replace(/^AS?/, '');
-                        asnInfo = `AS${asn} | ${data.network.organization}${data.network.isp !== data.network.organization ? ` (${data.network.isp})` : ''}`;
-                      }
-
-                      // 获取地理位置信息并添加国旗
-                      let location = '-';
-                      if (source === 'ipdata') {
-                        const parts = [
-                          data.country_name,
-                          data.region,
-                          data.city
-                        ].filter(Boolean);
-                        const flag = data.country_code ? countryToFlag(data.country_code) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      } else if (source === 'ipbase' && data.data?.location) {
-                        const loc = data.data.location;
-                        const parts = [
-                          loc.country?.name,
-                          loc.region?.name,
-                          loc.city?.name
-                        ].filter(Boolean);
-                        const flag = loc.country?.alpha2 ? countryToFlag(loc.country.alpha2) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      } else if (source === 'ipregistry') {
-                        const parts = [
-                          data.location.country?.name,
-                          data.location.region?.name,
-                          data.location.city
-                        ].filter(Boolean);
-                        const flag = data.location.country?.code ? countryToFlag(data.location.country.code) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      } else if (source === 'ipquery' && data.location) {
-                        const parts = [
-                          data.location.country,
-                          data.location.state,
-                          data.location.city
-                        ].filter(Boolean);
-                        const flag = data.location.country_code ? countryToFlag(data.location.country_code) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      } else if (data.location) {
-                        const countryCode = data.location.countryCode || data.location.country_code || '';
-                        const flag = countryCode ? countryToFlag(countryCode) : '';
-                        
-                        // 处理中国特有的地址格式
-                        if (source === 'geocn' || source === 'qqwry') {
-                          const parts = [
-                            data.location.country,
-                            data.location.province || data.location.region,
-                            data.location.city,
-                            data.location.district
-                          ].filter(Boolean);
-                          location = parts.join(' • ') || '-';
-                        } else {
-                          const parts = [
-                            data.location.country,
-                            data.location.region,
-                            data.location.city
-                          ].filter(Boolean);
-                          location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                        }
-                      } else if (source === 'ip2location_io' && data.location) {
-                        const parts = [
-                          data.location.country,
-                          data.location.region,
-                          data.location.city,
-                          data.location.district
-                        ].filter(Boolean);
-                        const flag = data.location.countryCode ? countryToFlag(data.location.countryCode) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      }
-
+                    {Object.entries(queryResult.sources).map(([source, data]) => {
+                      const network = [data.network.asn, data.network.organization || data.network.isp || data.network.handle].filter(Boolean).join(' | ');
+                      const location = [data.location.country, data.location.region, data.location.city, data.location.district].filter(Boolean).join(' • ');
                       return (
                         <tr key={source} className="border-t border-gray-200 hover:bg-gray-50">
-                          <td className="py-3 pr-4 text-sm text-gray-500">{getSourceName(source)}</td>
-                          <td className="py-3 px-4 text-sm">
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-100 text-neutral-500">
-                              {ipAddress}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-900">{asnInfo || '-'}</td>
-                          <td className="py-3 pl-4 text-sm text-gray-900">{location || '-'}</td>
+                          <td className="py-3 pr-4 text-sm text-gray-500">{data.label}</td>
+                          <td className="py-3 px-4 text-sm">{queryResult.ip}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{network || '-'}</td>
+                          <td className="py-3 pl-4 text-sm text-gray-900">{countryToFlag(data.location.countryCode || '')} {location || '-'}</td>
                         </tr>
                       );
                     })}

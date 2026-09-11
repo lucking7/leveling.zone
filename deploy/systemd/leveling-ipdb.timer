@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily IP database update
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+Unit=leveling-ipdb.service
+
+[Install]
+WantedBy=timers.target

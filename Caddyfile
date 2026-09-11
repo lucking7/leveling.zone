@@ -33,6 +33,11 @@ rere.ws {
         reverse_proxy app:3000
     }
 
+    # /ip/query redirects to the application root with the IP query string.
+    handle / {
+        reverse_proxy app:3000
+    }
+
     # 其他路径显示404或重定向到主页
     handle /* {
         respond "Page not found - Available paths: /ip, /ip/query" 404
