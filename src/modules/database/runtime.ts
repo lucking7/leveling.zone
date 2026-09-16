@@ -81,8 +81,8 @@ export class RuntimeDatabase {
     const resolved = this.catalog.map(definition => {
       try {
         return { definition, database: resolveFile(snapshot, definition) };
-      } catch {
-        errors[definition.id] = 'Database unavailable';
+      } catch (error) {
+        errors[definition.id] = (error as NodeJS.ErrnoException)?.code === 'ENOENT' ? 'Database not installed' : 'Database unavailable';
         return { definition };
       }
     });

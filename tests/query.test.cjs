@@ -38,6 +38,20 @@ test('external timeouts include response body and preserve local results', async
   assert.equal(r.sources.dbip.location.country, 'United States');
   assert.equal(r.errors.ipquery, 'Source unavailable');
 });
+test('expanded upstream catalog uses bounded concurrency and completes despite individual failures', async () => {
+  let active = 0, peak = 0, attempts = 0;
+  const result = await queryIP('8.8.8.8', { databases, fetcher: async () => {
+    active++; attempts++; peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 5));
+    active--;
+    throw new Error('upstream unavailable');
+  } });
+  assert.ok(peak <= 8, `maximum concurrent requests: ${peak}`);
+  assert.ok(attempts >= require('../src/modules/query/external.ts').externalIds.length - 1);
+  assert.equal(active, 0);
+  assert.equal(result.sources.dbip.location.country, 'United States');
+  assert.equal(result.status, 'partial');
+});
 test('malformed and empty external responses cannot masquerade as source success', async () => {
   for (const value of [{}, [], { error: 'secret' }, { location: {} }]) {
     await assert.rejects(fetchExternal('ipquery', '8.8.8.8', async () => ({ ok: true, json: async () => value })));

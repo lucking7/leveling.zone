@@ -1,305 +1,544 @@
-'use client';
+"use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import { countryToFlag } from '@/utils/country';
-import { LevelingLogoText } from '@/components/ui/logo';
-import { Particles } from '@/components/ui/particles';
-import { useTheme } from "next-themes";
-import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button';
-import { displaySourceName, sourceRegion } from '@/modules/observation/catalog';
-import type { ObservationSourceData, ObservationSummary } from '@/modules/observation';
+import { SourcePicker, SourceData } from "@/components/source-data";
 
-interface IPInfo {
+import { CountryLabel } from "@/components/country-flag";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { useLocale, type Translate } from "@/components/locale";
+import {
+  CopyButton,
+  DataPanel,
+  DataRow,
+  StatusNotice,
+  Workspace,
+} from "@/components/workspace";
+import { displaySourceName } from "@/modules/observation/catalog";
+import type {
+  ObservationFailureReason,
+  ObservationSourceData,
+  ObservationSummary,
+} from "@/modules/observation/types";
+
+interface ObservationEnvelope {
   ip: string;
-  ipSource?: string;
-  sources?: Record<string, ObservationSourceData>;
-  observation?: ObservationSummary;
+  ipSource: string;
+  sources: Record<string, ObservationSourceData>;
+  observation: ObservationSummary;
+  generation?: string;
+  timestamp?: string;
+  error?: string;
 }
 
-function asText(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '';
-  return String(value);
+type FailureKind =
+  | "unrecognized-ip"
+  | "service-unavailable"
+  | "invalid-response"
+  | "request-failed";
+
+const FAILURE_REASONS: readonly ObservationFailureReason[] = [
+  "timeout",
+  "http-error",
+  "invalid-response",
+  "network-error",
+  "lookup-failed",
+  "not-installed",
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function presentSource(data: ObservationSourceData) {
-  const asn = asText(data.network?.asn);
-  const organization = asText(data.network?.organization);
-  const isp = asText(data.network?.isp);
-  const network = asn
-    ? `${asn.toUpperCase().startsWith('AS') ? asn : `AS${asn}`}${organization ? ` | ${organization}` : ''}${isp ? ` | ${isp}` : ''}`
-    : isp || organization || '-';
-  const location = data.location
-    ? [
-        data.location.country,
-        data.location.province || data.location.region,
-        data.location.city,
-        data.location.district,
-        data.location.area_name,
-        data.location.detail,
-      ]
-        .map(asText)
-        .filter((item) => item && item !== '-')
-        .join(' • ') || '-'
-    : '-';
+function scalar(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return null;
+}
 
+function optionalRecord(value: unknown): Record<string, unknown> | undefined {
+  return isRecord(value) ? value : undefined;
+}
+
+function parseSource(value: unknown): ObservationSourceData | null {
+  if (!isRecord(value) || !isRecord(value.observation)) return null;
+  if (
+    value.observation.scope !== "request-ip" ||
+    typeof value.observation.source !== "string" ||
+    !value.observation.source
+  ) {
+    return null;
+  }
+
+  const location = optionalRecord(value.location);
+  const network = optionalRecord(value.network);
+  const security = optionalRecord(value.security);
+  const accuracy = optionalRecord(value.accuracy);
+  const meta = optionalRecord(value.meta);
   return {
-    ip: data.ip && data.ip !== '::1' ? data.ip : '-',
-    network,
-    location,
-    countryCode: asText(data.location?.country_code),
+    ...(typeof value.ip === "string" && { ip: value.ip }),
+    ...(location && { location }),
+    ...(network && { network }),
+    ...(security && { security }),
+    ...(accuracy && { accuracy }),
+    ...(meta && { meta }),
+    observation: {
+      scope: "request-ip",
+      source: value.observation.source,
+    },
   };
 }
 
-function MyIPContent() {
-  const [ipInfo, setIpInfo] = useState<IPInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { theme } = useTheme();
-
-  useEffect(() => {
-    const fetchIPInfo = async () => {
-      try {
-        const response = await fetch('/api/myip');
-        if (!response.ok) {
-          throw new Error('获取IP信息失败');
-        }
-        const data = await response.json();
-        setIpInfo(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '未知错误');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchIPInfo();
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
-      </div>
-    );
+function parseObservation(value: unknown): ObservationEnvelope | null {
+  if (
+    !isRecord(value) ||
+    typeof value.ip !== "string" ||
+    !value.ip ||
+    typeof value.ipSource !== "string" ||
+    !isRecord(value.sources) ||
+    !isRecord(value.observation) ||
+    value.observation.semantics !== "request-ip" ||
+    !Array.isArray(value.observation.failures)
+  ) {
+    return null;
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-red-500">{error}</div>
-      </div>
-    );
+  const requestCount = value.observation.requestIpSourceCount;
+  const egressCount = value.observation.serverEgressSourceCount;
+  if (
+    typeof requestCount !== "number" ||
+    !Number.isInteger(requestCount) ||
+    requestCount < 0 ||
+    egressCount !== 0
+  ) {
+    return null;
   }
 
-  return (
-    <main className="flex flex-col min-h-screen antialiased relative overflow-hidden">
-      <Particles 
-        className="absolute inset-0 -z-10"
-        quantity={80}
-        staticity={50}
-        ease={70}
-        color={theme === "dark" ? "#ffffff" : "#000000"}
-        size={0.4}
-      />
-      <section className="pb-6 relative z-10">
-        <nav className="container relative z-50 h-24 select-none">
-          <div className="container relative flex flex-wrap items-center justify-between h-24 px-0 mx-auto overflow-hidden font-medium border-b border-gray-200 md:overflow-visible sm:px-0">
-            <div className="flex items-center justify-start h-full -ml-4">
-              <a href="/" className="flex items-center py-4 text-xl font-extrabold text-gray-900 md:py-0">
-                <div className="flex items-center justify-center w-8 h-8 text-white bg-gray-900 rounded-full">
-                  <div className="w-6 h-6 icon-[entypo--code]"></div>
-                </div>
-                <div className="ml-2">
-                  LEVELING<span className="text-indigo-600">.</span>ZONE
-                </div>
-              </a>
-            </div>
-            <div className="w-3/4 flex justify-end">
-              <div className="flex items-center justify-end pt-4 md:items-center md:flex-row md:py-0">
-                <a 
-                  href="/" 
-                  className="inline-flex items-center px-5 py-3 text-sm font-medium leading-4 text-white bg-gray-900 md:w-auto md:rounded-full hover:bg-gray-800 focus:outline-none md:focus:ring-2 focus:ring-0 focus:ring-offset-2 focus:ring-gray-800"
-                >
-                  返回首页
-                </a>
-              </div>
-            </div>
-          </div>
-        </nav>
-      </section>
+  const failures = value.observation.failures.flatMap((failure) => {
+    if (
+      !isRecord(failure) ||
+      typeof failure.source !== "string" ||
+      !FAILURE_REASONS.includes(failure.reason as ObservationFailureReason)
+    ) {
+      return [];
+    }
+    return [
+      {
+        source: failure.source,
+        reason: failure.reason as ObservationFailureReason,
+      },
+    ];
+  });
+  if (failures.length !== value.observation.failures.length) return null;
 
-      <section className="flex flex-1 relative z-10">
-        <div className="container mx-auto md:w-10/12">
-          <div className="flex justify-center items-center relative mb-6 flex-col">
-            <h1 className="title text-gray-900 z-10 text-5xl md:text-7xl lg:text-9xl font-bold">
-              你的 IP 地址
-            </h1>
-            <div className="pb-6 text-sm relative z-10">
-              <div className="relative group">
-                <InteractiveHoverButton
-                  onClick={() => window.location.href = '/'}
-                  text="查询其他IP"
-                  className="bg-gray-900 text-white"
-                />
-              </div>
-            </div>
-          </div>
+  const sources: Record<string, ObservationSourceData> = {};
+  for (const [key, sourceValue] of Object.entries(value.sources)) {
+    const source = parseSource(sourceValue);
+    if (!source || source.ip !== value.ip) return null;
+    sources[key] = source;
+  }
+  if (Object.keys(sources).length !== requestCount) return null;
 
-          {ipInfo && (
-            <div className="container mx-auto px-4 md:px-8 lg:px-16 xl:px-32">
-              <div className="text-center mb-8">
-                <div className="text-4xl font-bold mb-4">{ipInfo.ip}</div>
-                <p className="mx-auto max-w-3xl text-sm leading-6 text-gray-500">
-                  此地址由本站接收的访问请求报告{ipInfo.ipSource ? `（来源：${ipInfo.ipSource}）` : ''}。
-                  标记为“请求 IP”的数据源查询该地址，标记为“服务器出口”的数据源观测本站服务器发起上游请求时使用的出口地址。
-                </p>
-                {ipInfo.observation && (
-                  <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-600">
-                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">
-                      请求 IP {ipInfo.observation.requestIpSourceCount}
-                    </span>
-                    <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">
-                      服务器出口 {ipInfo.observation.serverEgressSourceCount}
-                    </span>
-                    {ipInfo.observation.failures.length > 0 && (
-                      <span className="rounded-full bg-neutral-100 px-3 py-1">
-                        暂不可用 {ipInfo.observation.failures.length}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
+  return {
+    ip: value.ip,
+    ipSource: value.ipSource,
+    sources,
+    observation: {
+      semantics: "request-ip",
+      requestIpSourceCount: requestCount,
+      serverEgressSourceCount: 0,
+      failures,
+    },
+    ...(typeof value.generation === "string" && {
+      generation: value.generation,
+    }),
+    ...(typeof value.timestamp === "string" && { timestamp: value.timestamp }),
+    ...(typeof value.error === "string" && { error: value.error }),
+  };
+}
 
-              <div className="w-full overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left border-b border-gray-200">
-                      <th className="py-3 pr-4 font-medium text-sm text-gray-500 w-[180px]">数据源</th>
-                      <th className="py-3 px-4 font-medium text-sm text-gray-500 w-[120px]">观测范围</th>
-                      <th className="py-3 px-4 font-medium text-sm text-gray-500 w-[140px]">IP</th>
-                      <th className="py-3 px-4 font-medium text-sm text-gray-500 w-[250px]">运营商</th>
-                      <th className="py-3 pl-4 font-medium text-sm text-gray-500">地址</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ipInfo.sources && Object.entries(ipInfo.sources)
-                      .sort(([sourceA], [sourceB]) => {
-                        const regionA = sourceRegion(sourceA);
-                        const regionB = sourceRegion(sourceB);
-                        if (regionA === regionB) return 0;
-                        if (regionA === 'china') return -1;
-                        if (regionB === 'china') return 1;
-                        return 0;
-                      })
-                      .map(([source, data]) => {
-                        const sourceData = presentSource(data);
-
-                        return (
-                          <tr key={source} className="border-t border-gray-200 hover:bg-gray-50">
-                            <td className="py-3 pr-4 text-sm text-gray-500">{displaySourceName(source)}</td>
-                            <td className="py-3 px-4 text-sm">
-                              <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs ${
-                                data.observation.scope === 'request-ip'
-                                  ? 'bg-indigo-50 text-indigo-700'
-                                  : 'bg-amber-50 text-amber-700'
-                              }`}>
-                                {data.observation.scope === 'request-ip' ? '请求 IP' : '服务器出口'}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-100 text-neutral-500">
-                                {sourceData.ip}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-900">
-                              {sourceData.network}
-                            </td>
-                            <td className="py-3 pl-4 text-sm text-gray-900">
-                              {sourceData.countryCode && sourceData.countryCode.length === 2 ? (
-                                <>
-                                  {countryToFlag(sourceData.countryCode)} {sourceData.countryCode}{' '}
-                                </>
-                              ) : sourceData.countryCode ? (
-                                <>{sourceData.countryCode} </>
-                              ) : null}
-                              {sourceData.location}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="mt-20 border-t border-gray-200">
-        <div className="container mx-auto flex flex-col items-center sm:flex-row sm:items-start gap-8 py-10">
-          <div className="flex flex-col items-center sm:items-start py-1">
-            <a href="/" className="text-xl font-black leading-none text-gray-900 select-none">
-              <LevelingLogoText />
-            </a>
-            <a className="mt-4 text-sm text-gray-500 block" href="https://leveling.zone" target="_blank">
-              &copy; 2025 Web is Cool, Web is Best.
-            </a>
-          </div>
-          
-          <div className="flex-1 sm:px-2 md:px-10 lg:px-20 xl:px-36 text-center sm:text-left">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 hidden sm:block">Products</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1">
-              <a href="https://tempmail.best" className="text-xs lg:text-sm leading-6 text-gray-500 hover:text-gray-900" title="TempMail.Best">TempMail.Best</a>
-              <a href="https://sink.cool" className="text-xs lg:text-sm leading-6 text-gray-500 hover:text-gray-900" title="Sink.Cool">Sink.Cool</a>
-              <a href="https://dns.surf" className="text-xs lg:text-sm leading-6 text-gray-500 hover:text-gray-900" title="DNS.Surf">DNS.Surf</a>
-              <a href="https://loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.ong" className="text-xs lg:text-sm leading-6 text-gray-500 hover:text-gray-900" title="L(O*62).ONG">L(O*62).ONG</a>
-              <a href="https://beauty.codes" className="text-xs lg:text-sm leading-6 text-gray-500 hover:text-gray-900" title="Beauty.Codes">Beauty.Codes</a>
-              <a href="https://awesome-homelab.com" className="text-xs lg:text-sm leading-6 text-gray-500 hover:text-gray-900" title="Awesome Homelab">Awesome Homelab</a>
-            </div>
-          </div>
-          
-          <div className="inline-flex justify-center gap-5 mt-4 sm:ml-auto sm:mt-0 sm:grid sm:gap-y-1 sm:grid-cols-3">
-            <a href="mailto:leveling.zone@miantiao.me" title="Email" className="text-gray-400 hover:text-gray-500">
-              <span className="sr-only">Email</span>
-              <span className="w-6 h-6 icon-[mdi--email]"></span>
-            </a>
-            <a href="https://t.me/levelingzone" target="_blank" title="Telegram" className="text-gray-400 hover:text-gray-500">
-              <span className="sr-only">Telegram</span>
-              <span className="w-6 h-6 icon-[mdi--telegram]"></span>
-            </a>
-            <a href="https://mt.ci/" target="_blank" title="Blog" className="text-gray-400 hover:text-gray-500">
-              <span className="sr-only">Blog</span>
-              <span className="w-6 h-6 icon-[mdi--blogger]"></span>
-            </a>
-            <a href="https://404.li/x" target="_blank" title="Twitter" className="text-gray-400 hover:text-gray-500">
-              <span className="sr-only">Twitter</span>
-              <span className="w-6 h-6 icon-[mdi--twitter]"></span>
-            </a>
-            <a href="https://c.im/@mt" target="_blank" title="Mastodon" className="text-gray-400 hover:text-gray-500">
-              <span className="sr-only">Mastodon</span>
-              <span className="w-6 h-6 icon-[mdi--mastodon]"></span>
-            </a>
-            <a href="https://github.com/ccbikai" target="_blank" title="GitHub" className="text-gray-400 hover:text-gray-500">
-              <span className="sr-only">GitHub</span>
-              <span className="w-10 h-10 icon-[mdi--github]"></span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-10">
-        <div className="container mx-auto">
-          {/* 额外的底部空间 */}
-        </div>
-      </section>
-    </main>
+function sourceName(key: string, source: ObservationSourceData): string {
+  const reported = source.observation.source.trim();
+  if (reported) return reported;
+  return displaySourceName(key).replace(
+    /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\uFE0F|\u200D|\s)+/gu,
+    "",
   );
 }
 
-export default function MyIP() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <MyIPContent />
-    </Suspense>
+function sourceScore(source: ObservationSourceData): number {
+  return [source.location, source.network].reduce(
+    (total, group) =>
+      total +
+      Object.values(group ?? {}).filter((value) => scalar(value) !== null)
+        .length,
+    0,
   );
-} 
+}
+
+function bestSource(entries: Array<[string, ObservationSourceData]>): string {
+  return (
+    entries.reduce(
+      (best, entry) =>
+        sourceScore(entry[1]) > sourceScore(best[1]) ? entry : best,
+      entries[0],
+    )?.[0] ?? ""
+  );
+}
+
+function firstValue(
+  record: Record<string, unknown> | undefined,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = scalar(record?.[key]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function coordinates(source: ObservationSourceData): string | null {
+  const latitude = scalar(source.location?.latitude);
+  const longitude = scalar(source.location?.longitude);
+  return latitude !== null && longitude !== null
+    ? `${latitude}, ${longitude}`
+    : null;
+}
+
+function locationSummary(source: ObservationSourceData, t: Translate): string {
+  const location = source.location;
+  const description = firstValue(location, ["description"]);
+  if (description) return description;
+  const parts = [
+    firstValue(location, ["city"]),
+    firstValue(location, ["province", "region", "state"]),
+    firstValue(location, ["country"]),
+  ].filter((item): item is string => Boolean(item));
+  return parts.join(", ") || t("未提供", "Not provided");
+}
+
+function networkSummary(source: ObservationSourceData, t: Translate): string {
+  return (
+    firstValue(source.network, ["organization", "isp", "description", "asn"]) ||
+    t("未提供", "Not provided")
+  );
+}
+
+function failureMessage(kind: FailureKind, t: Translate): string {
+  const messages: Record<FailureKind, [string, string]> = {
+    "unrecognized-ip": [
+      "无法识别当前 IP，请重试。",
+      "Could not identify your current IP. Try again.",
+    ],
+    "service-unavailable": [
+      "当前 IP 查询服务暂不可用，请稍后重试。",
+      "The IP lookup service is unavailable. Try again later.",
+    ],
+    "invalid-response": [
+      "收到无法识别的响应，请重试。",
+      "The response could not be read. Try again.",
+    ],
+    "request-failed": [
+      "请求失败，请检查连接后重试。",
+      "The request failed. Check your connection and try again.",
+    ],
+  };
+  return t(...messages[kind]);
+}
+
+function SourcePanels({
+  result,
+  source,
+}: {
+  result: ObservationEnvelope;
+  source: ObservationSourceData;
+}) {
+  const { t } = useLocale();
+  const location = source.location;
+  const network = source.network;
+  const country = firstValue(location, ["country"]);
+  const countryCode = firstValue(location, ["countryCode", "country_code"]);
+  const countryRegion = [country, countryCode && `(${countryCode})`]
+    .filter(Boolean)
+    .join(" ");
+  const asn = firstValue(network, ["asn"]);
+
+  return (
+    <>
+      <DataPanel
+        title={t("当前 IP", "Your IP")}
+        actions={
+          <CopyButton
+            value={result.ip}
+            label={t("复制 IP", "Copy IP")}
+            compact
+          />
+        }
+      >
+        <DataRow mono
+          label={t("地址", "Address")}
+          value={result.ip}
+          copyValue={result.ip}
+        />
+        <DataRow mono
+          label={t("地址版本", "IP version")}
+          value={result.ip.includes(":") ? "IPv6" : "IPv4"}
+        />
+        {firstValue(location, ["continent"]) && (
+          <DataRow
+            label={t("洲", "Continent")}
+            value={firstValue(location, ["continent"])}
+          />
+        )}
+        {countryRegion && (
+          <DataRow
+            label={t("国家或地区", "Country or region")}
+            value={countryRegion}
+          />
+        )}
+        {firstValue(location, ["region", "province", "state"]) && (
+          <DataRow
+            label={t("地区", "Region")}
+            value={firstValue(location, ["region", "province", "state"])}
+          />
+        )}
+        {firstValue(location, ["city"]) && (
+          <DataRow
+            label={t("城市", "City")}
+            value={firstValue(location, ["city"])}
+          />
+        )}
+        {firstValue(location, ["timezone", "time_zone", "timeZone"]) && (
+          <DataRow mono
+            label={t("时区", "Time zone")}
+            value={firstValue(location, ["timezone", "time_zone", "timeZone"])}
+          />
+        )}
+        {coordinates(source) && (
+          <DataRow mono
+            label={t("坐标", "Coordinates")}
+            value={coordinates(source)}
+            copyValue={coordinates(source) ?? undefined}
+          />
+        )}
+        <DataRow
+          label={t("位置", "Location")}
+          value={<CountryLabel code={countryCode}>{locationSummary(source, t)}</CountryLabel>}
+          copyValue={locationSummary(source, t)}
+        />
+      </DataPanel>
+
+      <DataPanel title={t("网络", "Network")}>
+        {firstValue(network, ["isp"]) && (
+          <DataRow label="ISP" value={firstValue(network, ["isp"])} />
+        )}
+        {firstValue(network, ["organization"]) && (
+          <DataRow
+            label={t("IP 组织", "IP organization")}
+            value={firstValue(network, ["organization"])}
+          />
+        )}
+        {asn && (
+          <DataRow mono
+            label="ASN"
+            value={asn.toUpperCase().startsWith("AS") ? asn : `AS${asn}`}
+          />
+        )}
+        {firstValue(network, ["route"]) && (
+          <DataRow mono
+            label={t("路由", "Route")}
+            value={firstValue(network, ["route"])}
+          />
+        )}
+        {firstValue(network, ["domain"]) && (
+          <DataRow mono
+            label={t("域名", "Domain")}
+            value={firstValue(network, ["domain"])}
+          />
+        )}
+        {firstValue(network, ["handle"]) && (
+          <DataRow mono
+            label={t("网络标识", "Network handle")}
+            value={firstValue(network, ["handle"])}
+          />
+        )}
+        {firstValue(network, ["description"]) && (
+          <DataRow
+            label={t("描述", "Description")}
+            value={firstValue(network, ["description"])}
+          />
+        )}
+        {!Object.values(network ?? {}).some(
+          (value) => scalar(value) !== null,
+        ) && (
+          <DataRow
+            label={t("网络", "Network")}
+            value={t("未提供", "Not provided")}
+          />
+        )}
+      </DataPanel>
+    </>
+  );
+}
+
+export default function MyIpPage() {
+  const { t } = useLocale();
+  const [result, setResult] = useState<ObservationEnvelope | null>(null);
+  const [selectedSource, setSelectedSource] = useState("");
+  const [failure, setFailure] = useState<FailureKind | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [stale, setStale] = useState(false);
+  const sequence = useRef(0);
+  const activeController = useRef<AbortController | null>(null);
+  const resultRef = useRef<ObservationEnvelope | null>(null);
+
+  const load = useCallback(async () => {
+    const requestId = ++sequence.current;
+    activeController.current?.abort();
+    const controller = new AbortController();
+    activeController.current = controller;
+    setIsLoading(true);
+    setFailure(null);
+    setStale(Boolean(resultRef.current));
+
+    try {
+      const response = await fetch("/api/myip", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        if (requestId === sequence.current) setFailure("invalid-response");
+        return;
+      }
+
+      if (requestId !== sequence.current || controller.signal.aborted) return;
+      const observation = parseObservation(body);
+      if ((response.ok || response.status === 503) && observation) {
+        const entries = Object.entries(observation.sources)
+          .filter(([, source]) => sourceScore(source) > 0)
+          .sort(([left], [right]) => left.localeCompare(right));
+        if (entries.length === 0) {
+          setFailure("service-unavailable");
+          return;
+        }
+        resultRef.current = observation;
+        setResult(observation);
+        setSelectedSource(bestSource(entries));
+        setStale(false);
+        return;
+      }
+
+      setFailure(
+        response.status === 400
+          ? "unrecognized-ip"
+          : response.status >= 500
+            ? "service-unavailable"
+            : "invalid-response",
+      );
+    } catch (error) {
+      if (
+        requestId !== sequence.current ||
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        return;
+      }
+      setFailure("request-failed");
+    } finally {
+      if (requestId === sequence.current) {
+        setIsLoading(false);
+        activeController.current = null;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    return () => {
+      sequence.current += 1;
+      activeController.current?.abort();
+    };
+  }, [load]);
+
+  const entries = useMemo(
+    () =>
+      Object.entries(result?.sources ?? {})
+        .filter(([, source]) => sourceScore(source) > 0)
+        .sort(([left], [right]) => left.localeCompare(right)),
+    [result],
+  );
+  const current = entries.find(([key]) => key === selectedSource) ?? entries[0];
+
+  return (
+    <Workspace active="myip">
+      <div className="lookup-page myip-page" aria-busy={isLoading}>
+        <header className="lookup-intro">
+          <h1 className="lookup-title">{t("我的 IP", "My IP")}</h1>
+          <p className="lookup-description">
+            {t(
+              "查看此连接向本站公开的 IP、网络归属与估计位置。",
+              "See the IP this connection exposes to this site, its network and estimated location.",
+            )}
+          </p>
+        </header>
+
+        <div className="result-actions">
+          <span>
+            {isLoading
+              ? t("正在查询当前 IP…", "Looking up your current IP…")
+              : stale
+                ? t("上次查询结果", "Previous result")
+                : result
+                  ? t("当前连接", "Current connection")
+                  : t("暂时无法查询", "Lookup unavailable")}
+          </span>
+          <button
+            type="button"
+            className="notice-action"
+            onClick={() => void load()}
+            disabled={isLoading}
+          >
+            {isLoading ? t("查询中…", "Looking up…") : t("重试", "Try again")}
+          </button>
+        </div>
+
+        <div aria-live="polite">
+          {failure && (
+            <StatusNotice tone="error">
+              {failureMessage(failure, t)}
+            </StatusNotice>
+          )}
+          {stale && result && (
+            <StatusNotice tone="warning">
+              {t(
+                "当前显示上次查询结果，请重试以获取新结果。",
+                "Showing the previous result. Try again for a new result.",
+              )}
+            </StatusNotice>
+          )}
+        </div>
+
+        {result && current && (
+          <div className="lookup-results">
+            <div className="result-actions">
+              <SourcePicker sources={entries.map(([key, source]) => ({ id: key, label: sourceName(key, source), network: networkSummary(source, t), location: locationSummary(source, t), countryCode: firstValue(source.location, ["countryCode", "country_code"]) }))} selected={current[0]} onChange={setSelectedSource} />
+              <CopyButton
+                value={JSON.stringify(result, null, 2)}
+                label={t("复制完整 JSON", "Copy full JSON")}
+                compact
+              />
+            </div>
+
+            <SourcePanels result={result} source={current[1]} />
+
+            <SourceData sources={entries.map(([key, source]) => ({ id: key, label: sourceName(key, source), network: networkSummary(source, t), location: locationSummary(source, t), countryCode: firstValue(source.location, ["countryCode", "country_code"]) }))} selected={current[0]} raw={result} />
+          </div>
+        )}
+      </div>
+    </Workspace>
+  );
+}

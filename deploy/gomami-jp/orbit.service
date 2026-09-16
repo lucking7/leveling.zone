@@ -1,0 +1,26 @@
+[Unit]
+Description=ORBIT IP Observatory
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orbit
+Group=orbit
+WorkingDirectory=/opt/orbit/current/.next/standalone
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3001
+Environment=MMDB_PATH=/opt/orbit/database/current
+ExecStart=/opt/orbit/runtime/node-v22.23.2-linux-x64/bin/node server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/orbit/current/.next/standalone/.next/cache
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

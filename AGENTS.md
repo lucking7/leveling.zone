@@ -7,7 +7,7 @@
 - 网站页面和 API 路由在 `src/app/`，组件在 `src/components/`，`@/*` 指向 `src/*`。编辑前追踪实际 import 和请求 URL。
 - IP 查询 route 与 `src/services/database.ts` 仅作 adapter；统一 implementation 位于 `src/modules/query`，旧输出 projection 位于 `legacy.ts`。字段变化需覆盖主页面、兼容 GET/POST 及供应商直达 route，见 [架构说明](docs/architecture.md)。
 - 服务器读库统一通过 `src/modules/database`，查询与归一化通过 `src/modules/query`。每次查询固定一个数据库目录，优先 `MMDB_PATH`，再 `data/db/current`、`data/db`、`public/db`，缺件不跨版本补齐。reader 按文件身份缓存；下一次查询发现版本变化后退休旧 reader，正在使用的 reader 延迟释放，无需为数据库更新重启应用。
-- `src/app/api/myip/route.ts` 使用 Edge runtime，本地文件和数据库依赖不得引入客户端或 Edge 路由。
+- `src/app/api/myip/route.ts` 使用 Node.js runtime，基于可信入口提供的访问者 IP 查询本地数据库；禁止调用服务器出口探测源。数据库依赖不得引入客户端或其他 Edge 路由。
 
 ## 数据库更新与发布
 

@@ -18,7 +18,7 @@ function coordinate(value: unknown, limit: number): number | undefined {
 }
 export function source(label: string, location: Raw = {}, network: Raw = {}, security?: Raw): SourceResult {
   const loc: SourceResult['location'] = {};
-  for (const key of ['country', 'countryCode', 'region', 'city', 'district', 'divisionCode', 'continent', 'timezone', 'postalCode'] as const) {
+  for (const key of ['country', 'countryCode', 'region', 'city', 'district', 'divisionCode', 'continent', 'timezone', 'postalCode', 'description'] as const) {
     const value = text(location[key]);
     if (value) loc[key] = value;
   }

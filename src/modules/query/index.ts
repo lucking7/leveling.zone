@@ -16,9 +16,19 @@ export async function queryIP(ip: string, options: {
   if (typeof ip !== 'string' || !isIP(ip) || ip.includes('%')) throw new InvalidIP('Invalid IP address');
   const local = await (options.databases || queryDatabases)(ip);
   const sources = normalizeLocal(local.records);
-  const errors = Object.fromEntries(Object.keys(local.errors).map(id => [id, 'Database unavailable or query failed']));
+  const errors = Object.fromEntries(Object.keys(local.errors).map(id => [id, local.errors[id] === 'Database not installed' ? 'Database not installed' : 'Database unavailable or query failed']));
   if (options.external !== false && permitsExternal(ip)) {
-    const results = await Promise.allSettled(externalIds.map(id => fetchExternal(id, ip, options.fetcher, options.timeoutMs)));
+    const results: PromiseSettledResult<Awaited<ReturnType<typeof fetchExternal>>>[] = new Array(externalIds.length);
+    let cursor = 0;
+    // Bound upstream fan-out as the catalog grows; retain catalog order in the response.
+    await Promise.all(Array.from({ length: Math.min(8, externalIds.length) }, async () => {
+      while (cursor < externalIds.length) {
+        const index = cursor++;
+        try {
+          results[index] = { status: 'fulfilled', value: await fetchExternal(externalIds[index], ip, options.fetcher, options.timeoutMs) };
+        } catch (reason) { results[index] = { status: 'rejected', reason }; }
+      }
+    }));
     results.forEach((result, i) => {
       const id = externalIds[i];
       if (result.status === 'fulfilled') sources[id] = result.value.normalized;
