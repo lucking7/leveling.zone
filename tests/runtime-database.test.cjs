@@ -207,12 +207,12 @@ test(
     const first = await runtime.queryDatabases('192.0.2.1');
     assert.equal(first.records.good.value, 'ready');
     assert.equal(first.errors.retry, 'Database unavailable');
-    assert.equal(first.errors.missing, 'Database unavailable');
+    assert.equal(first.errors.missing, 'Database not installed');
 
     const second = await runtime.queryDatabases('192.0.2.1');
     assert.equal(second.records.retry.value, 'eventual');
     assert.equal(second.errors.retry, undefined);
-    assert.equal(second.errors.missing, 'Database unavailable');
+    assert.equal(second.errors.missing, 'Database not installed');
     await runtime.dispose();
   })
 );
@@ -234,7 +234,7 @@ test(
     fs.unlinkSync(path.join(process.env.MMDB_PATH));
     activate('v2');
     const result = await runtime.queryDatabases('192.0.2.1');
-    assert.equal(result.errors.sample, 'Database unavailable');
+    assert.equal(result.errors.sample, 'Database not installed');
     assert.equal(result.records.anchor.value, 'present');
     assert.equal(state.closes, 2);
     await runtime.dispose();

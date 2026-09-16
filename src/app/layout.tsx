@@ -1,9 +1,29 @@
-import type { Metadata } from 'next';
-import './globals.css';
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+import { LocaleProvider } from "@/components/locale";
 
 export const metadata: Metadata = {
-  title: 'LEVELING.ZONE | IP位置查询',
-  description: 'IP位置查询工具，提供免费查询IP地址位置信息，支持多个数据源，准确率高。',
+  applicationName: "Orbit",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Orbit", statusBarStyle: "default" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  title: "ORBIT | 地址观测",
+  description:
+    "查询 IP 的位置、网络归属及 RDAP 注册信息。",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
@@ -12,13 +32,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh">
+    <html lang="zh" suppressHydrationWarning>
       <head>
+        <link rel="mask-icon" href="/brand/orbit-mark-mono.svg" color="#ef7b35" />
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script dangerouslySetInnerHTML={{__html: `try{document.documentElement.dataset.theme=localStorage.getItem('orbit.theme')==='dark'?'dark':'light'}catch{}`}} />
       </head>
-      <body className="min-h-screen bg-white">
-        {children}
+      <body className="min-h-screen">
+        <LocaleProvider>{children}</LocaleProvider>
       </body>
     </html>
   );

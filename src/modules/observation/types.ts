@@ -4,7 +4,9 @@ export type ObservationFailureReason =
   | 'timeout'
   | 'http-error'
   | 'invalid-response'
-  | 'network-error';
+  | 'network-error'
+  | 'lookup-failed'
+  | 'not-installed';
 
 export interface ObservationProvenance {
   scope: ObservationScope;
@@ -27,7 +29,7 @@ export interface ObservationFailure {
 }
 
 export interface ObservationSummary {
-  semantics: 'mixed';
+  semantics: 'mixed' | 'request-ip';
   requestIpSourceCount: number;
   serverEgressSourceCount: number;
   failures: ObservationFailure[];

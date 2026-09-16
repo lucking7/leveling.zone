@@ -54,3 +54,13 @@ next-env.d.ts
 .venv*/
 __pycache__/
 *.pyc
+
+# Local research evidence and tooling state
+.impeccable/
+.firecrawl/
+.pi/
+
+# Host-specific deployment records stay local
+/docs/deployment/gomami-jp.md
+deploy/gomami-jp/nexttrace-api-proxy.service
+deploy/gomami-jp/nexttrace-api-only.override.conf

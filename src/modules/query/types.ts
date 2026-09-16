@@ -3,6 +3,7 @@ export interface SourceResult {
   location: {
     country?: string; countryCode?: string; region?: string; city?: string; district?: string; divisionCode?: string;
     continent?: string; latitude?: number; longitude?: number; timezone?: string; postalCode?: string;
+    description?: string;
   };
   network: { asn?: string; organization?: string; isp?: string; domain?: string; route?: string; handle?: string; description?: string };
   security?: Record<string, string | number | boolean>;

@@ -1,0 +1,23 @@
+[Unit]
+Description=ORBIT HTTP ingress on port 3000
+After=network-online.target orbit.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orbit
+Group=orbit
+Environment=XDG_DATA_HOME=/var/lib/orbit
+Environment=XDG_CONFIG_HOME=/var/lib/orbit
+ExecStart=/opt/orbit/runtime/caddy run --config /opt/orbit/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/orbit
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

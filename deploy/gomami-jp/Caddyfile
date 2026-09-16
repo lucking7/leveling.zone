@@ -1,0 +1,10 @@
+{
+    admin off
+    auto_https off
+}
+:3000 {
+    reverse_proxy 127.0.0.1:3001 {
+        header_up -CF-Connecting-IP
+        header_up X-Real-IP {remote_host}
+    }
+}
