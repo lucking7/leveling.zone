@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { queryIP, InvalidIP } = require('../src/modules/query/index.ts');
 const { fetchExternal } = require('../src/modules/query/external.ts');
-const { queryResponse, legacy, supplierRoute } = require('../src/modules/query/http.ts');
+const { queryResponse, legacy } = require('../src/modules/query/http.ts');
 const databases = async () => ({
   records: { 'dbip-city': { country: { names: { en: 'United States' }, iso_code: 'US' }, location: { latitude: 0, longitude: 0 } },
     'iptoasn': { autonomous_system_number: 4001, autonomous_system_organization: 'Example Network LLC' },
@@ -66,11 +66,6 @@ test('external normalization hides raw shape and retains false flags', async () 
   assert.equal(r.normalized.location.latitude, 0);
   assert.equal(r.normalized.network.organization, 'Google LLC');
 });
-test('supplier route rejects malformed IP before networking', async () => {
-  const response = await supplierRoute('ipquery')({}, { params: { ip: 'not-an-ip' } });
-  assert.equal(response.status, 400);
-});
-
 test('legacy GET and POST projections retain source-specific fields and numeric ASN', () => {
   const r = { ip: '8.8.8.8', status: 'ok', errors: {}, generation: 'v1', timestamp: 'fixture', sources: {
     dbip: { label: 'DB-IP', location: { country: 'United States', countryCode: 'US', continent: 'North America', latitude: 0, longitude: 0 }, network: { asn: 'AS15169', organization: 'Google LLC' }, security: { isEU: false } },

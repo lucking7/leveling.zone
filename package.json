@@ -12,37 +12,22 @@
     "download-db-local": "python3 scripts/ipdb.py install --repo lucking7/leveling.zone"
   },
   "dependencies": {
-    "@maxmind/geoip2-node": "^4.2.0",
-    "@radix-ui/react-slot": "^1.2.0",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "csv-parse": "^5.6.0",
-    "framer-motion": "^12.7.3",
     "ip2location-nodejs": "^9.6.3",
     "ip2proxy-nodejs": "^4.3.2",
     "ipdb": "^0.3.3",
-    "leaflet": "^1.9.4",
     "lucide-react": "^0.488.0",
     "maxmind": "^4.3.23",
     "next": "^14.2.23",
-    "next-themes": "^0.4.6",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-leaflet": "^4.2.1",
-    "tailwind-merge": "^3.2.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@iconify-json/entypo": "^1.2.1",
-    "@iconify-json/mdi": "^1.2.3",
-    "@types/leaflet": "^1.9.16",
     "@types/node": "^20.17.16",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
-    "autoprefixer": "^10.4.16",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.1.0",
-    "postcss": "^8.4.33",
-    "tailwindcss": "^3.4.1",
     "typescript": "^5.7.3"
   }
 }

@@ -1,6 +1,6 @@
 # Caddy 部署
 
-所有命令从项目根目录执行。配置文件保留在根目录：[Caddyfile](../../Caddyfile)、[Caddyfile.local](../../Caddyfile.local)、[Compose](../../docker-compose.caddy.yml)。容器运行方式见 [Docker 部署说明](docker.md)。
+所有命令从项目根目录执行。配置文件保留在根目录：[Caddyfile](../../Caddyfile) 与 [Compose](../../docker-compose.caddy.yml)。容器运行方式见 [Docker 部署说明](docker.md)。
 
 ## 配置中的路径
 
@@ -8,36 +8,36 @@
 | --- | --- |
 | `/ip` | 改写为 `/myip` |
 | `/ip/query*` | 保留路径转发到应用 |
-| `/` | 保留路径转发到应用，承接查询页跳转 |
-| `/api/*`、`/_next/*`、`/favicon.ico` | 保留路径转发 |
-| 其他路径 | 返回 404 |
+| 其他路径 | 保留路径转发到应用 |
 
-生产配置使用 `rere.ws` 和上游 `app:3000`，本地配置使用 `localhost:3000`。这些是仓库配置值，部署前核实实际目标。应用的 `/ip/query` 页面会跳转到 `/`，两个配置都代理根路径以承接该跳转；部署后仍需验证完整浏览器跳转链。
+配置使用 `rere.ws` 和上游 `app:3000`，这是仓库配置值，部署前核实实际目标。应用的 `/ip/query` 页面会跳转到 `/`，配置代理根路径以承接该跳转；部署后仍需验证完整浏览器跳转链。
 
 ## 本地检查
 
-先在一个终端启动应用：
+启动应用后可以直接验证页面、查询接口与静态资源：
 
 ```bash
 npm run dev
 ```
 
-再从项目根目录验证并启动本地 Caddy：
+需要连同代理一起验证时，写一个临时站点块启动 Caddy，不要修改仓库中的 Caddyfile：
 
-```bash
-caddy validate --config Caddyfile.local
-caddy run --config Caddyfile.local
+```caddyfile
+localhost, 127.0.0.1 {
+    handle /ip/query* {
+        reverse_proxy localhost:3000
+    }
+    handle_path /ip {
+        rewrite * /myip
+        reverse_proxy localhost:3000
+    }
+    handle {
+        reverse_proxy localhost:3000
+    }
+}
 ```
 
-按照 Caddy 实际启动日志的协议、端口和证书配置访问 `/ip` 与 `/ip/query`，验证 API 和静态资源；不要把本地配置假定为仅 HTTP。
-
-辅助脚本位置为 `scripts/test-caddy.sh`，仍从项目根目录运行：
-
-```bash
-bash scripts/test-caddy.sh
-```
-
-该脚本以应用 `/` 的 HTTP 响应作可用性检查，并使用 HTTP 地址测试代理，需结合实际协议判断结果，不能将其当作数据库完整性或完整浏览器验收。
+按 Caddy 实际启动日志的协议、端口和证书配置访问 `/ip`、`/ip/query`、`/api/myip` 与静态资源；不要把本地配置假定为仅 HTTP。HTTP 200 只说明代理可达，不代表查询有数据。
 
 ## 容器部署与日志
 

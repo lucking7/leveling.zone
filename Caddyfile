@@ -1,46 +1,25 @@
 rere.ws {
     # 自动HTTPS - Caddy会自动申请和续期Let's Encrypt证书
-    
+
     # 日志配置
     log {
         output file /var/log/caddy/rere.ws.log
         format json
     }
 
-    # 路径映射：rere.ws/ip/query -> 项目的 /ip/query 页面
+    # /ip/query 由应用自己跳转到 /；/ip 映射到访问者页面
     handle /ip/query* {
         reverse_proxy app:3000
     }
 
-    # 路径映射：rere.ws/ip -> 项目的 /myip 页面
     handle_path /ip {
         rewrite * /myip
         reverse_proxy app:3000
     }
 
-    # API路由直接代理
-    handle /api/* {
+    # 其余路径（页面、API、静态资源）交给应用处理
+    handle {
         reverse_proxy app:3000
-    }
-
-    # Next.js静态资源
-    handle /_next/* {
-        reverse_proxy app:3000
-    }
-
-    # favicon和其他静态文件
-    handle /favicon.ico {
-        reverse_proxy app:3000
-    }
-
-    # /ip/query redirects to the application root with the IP query string.
-    handle / {
-        reverse_proxy app:3000
-    }
-
-    # 其他路径显示404或重定向到主页
-    handle /* {
-        respond "Page not found - Available paths: /ip, /ip/query" 404
     }
 
     # 全局头部配置
@@ -50,12 +29,12 @@ rere.ws {
         X-Frame-Options DENY
         X-XSS-Protection "1; mode=block"
         Referrer-Policy strict-origin-when-cross-origin
-        
+
         # 静态资源缓存
         Cache-Control "public, max-age=31536000" {
             path /_next/static/*
         }
-        
+
         # API无缓存
         Cache-Control "no-cache, no-store, must-revalidate" {
             path /api/*
@@ -67,4 +46,4 @@ rere.ws {
         gzip 6
         minimum_length 1000
     }
-} 
+}
