@@ -32,6 +32,20 @@ test('loopback remains loopback and an empty lookup is explicitly unavailable', 
   assert.equal(r.ip, '::1');
   assert.equal(r.status, 'unavailable');
 });
+test('a database without coverage for the address adds no source and no error', async () => {
+  const r = await queryIP('8.8.8.8', { external: false, databases: async () => ({
+    records: {
+      geocn: null,
+      'dbip-city': { country: { names: { en: 'United States' }, iso_code: 'US' }, location: { latitude: 0, longitude: 0 } },
+    },
+    errors: {},
+    generation: 'fixture-v1',
+  }) });
+  assert.equal(r.status, 'ok');
+  assert.equal(r.errors.geocn, undefined);
+  assert.equal(r.sources.geocn, undefined);
+  assert.equal(r.sources.dbip.location.country, 'United States');
+});
 test('external timeouts include response body and preserve local results', async () => {
   const r = await queryIP('8.8.8.8', { databases, timeoutMs: 10, fetcher: async () => ({ ok: true, json: () => new Promise(() => {}), text: () => new Promise(() => {}) }) });
   assert.equal(r.status, 'partial');

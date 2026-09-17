@@ -34,13 +34,6 @@ export function checkedBinResult(value: unknown, label: string): unknown {
   return value;
 }
 
-function checkedRecord(value: unknown, label: string): unknown {
-  if (value === null || value === undefined) {
-    throw new Error(`${label} returned no record`);
-  }
-  return value;
-}
-
 interface MmdbReader {
   metadata: { ipVersion: number };
   get(ip: string): unknown;
@@ -59,7 +52,10 @@ export function createMmdbAdapter(
           if (reader.metadata.ipVersion === 4 && ip.includes(':')) {
             throw new Error('IPv6 is not supported by this database');
           }
-          return checkedRecord(reader.get(ip), 'MMDB');
+          // An address outside this database's coverage is a gap in that source, not a failed
+          // query: report an empty record so the caller neither publishes data it does not have
+          // nor reports an error it did not hit.
+          return reader.get(ip) ?? null;
         },
       };
     },

@@ -84,7 +84,7 @@ test('MMDB adapter rejects IPv6 before consulting an IPv4-only reader', async ()
   assert.deepEqual(queries, ['192.0.2.1']);
 });
 
-test('MMDB adapter rejects an empty lookup as a failed query', async () => {
+test('MMDB adapter reports an address outside its coverage as an empty record', async () => {
   const adapter = createMmdbAdapter(async () => ({
     metadata: { ipVersion: 6 },
     get() {
@@ -92,7 +92,7 @@ test('MMDB adapter rejects an empty lookup as a failed query', async () => {
     },
   }));
   const reader = await adapter.open('/unused', database('empty'));
-  await assert.rejects(async () => reader.query('192.0.2.1'), /no record/);
+  assert.equal(await reader.query('192.0.2.1'), null);
 });
 
 test('BIN sentinel responses are rejected as failed queries', () => {

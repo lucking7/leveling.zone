@@ -18,7 +18,7 @@
 
 `GET /api/myip` 的每项 observation 都标明 `request-ip`。没有请求地址时返回 400，所有 source 都失败时返回 503，部分成功时仍展示已有结果。反向代理必须覆盖可信 IP headers，不能把客户端自带的转发 header 当成可信身份。
 
-IPv4 专用 MMDB 拒绝 IPv6 查询；BIN 错误哨兵、空 MMDB/IPDB 结果不算有效数据。不同 source 可能给出不同地理位置或 ASN，结果保持来源独立，不宣称其中某个必然正确。
+IPv4 专用 MMDB 拒绝 IPv6 查询；BIN 错误哨兵与 IPDB 失败码仍算查询失败，而 MMDB 对未覆盖地址返回空记录，既不产出数据也不计入 errors。空结果不算有效数据。不同 source 可能给出不同地理位置或 ASN，结果保持来源独立，不宣称其中某个必然正确。
 
 ## 验证
 
