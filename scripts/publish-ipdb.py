@@ -29,6 +29,21 @@ def gh(*args, binary=False):
     return result.stdout.decode('utf-8')
 
 
+def find_release(repo, tag):
+    """Resolve a Release by tag. `/releases/tags/` answers 404 while it is a draft."""
+    page = 1
+    while True:
+        releases = json.loads(gh('api', f'repos/{repo}/releases?per_page=100&page={page}'))
+        if not isinstance(releases, list):
+            raise PublishError('Invalid Release listing')
+        for release in releases:
+            if release.get('tag_name') == tag:
+                return release
+        if len(releases) < 100:
+            raise PublishError('Release not found after upload')
+        page += 1
+
+
 def confirm_published(repo, tag, attempts=3):
     for attempt in range(attempts):
         try:
@@ -82,7 +97,7 @@ def publish(directory, repo, tag, target, dry_run=False):
                '--verify-tag', '--title', tag, '--notes-file', file.name)
         created = True
         gh('release', 'upload', tag, *[str(directory / name) for name in names], '--repo', repo)
-        release = json.loads(gh('api', f'repos/{repo}/releases/tags/{tag}'))
+        release = find_release(repo, tag)
         if not release.get('draft') or release.get('tag_name') != tag:
             raise PublishError('Release changed while uploading; refusing to publish')
         assets = json.loads(gh('api', f"repos/{repo}/releases/{release['id']}/assets?per_page=100"))

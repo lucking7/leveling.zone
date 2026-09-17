@@ -51,8 +51,15 @@ class PublishTests(unittest.TestCase):
                 return json.dumps({'object': {'type': 'commit', 'sha': 'b' * 40 if self.wrong_target else SHA}})
             if '/assets?' in endpoint:
                 return json.dumps(self.assets)
-            if self.published and self.confirmation_fails and '/releases/tags/' in endpoint:
-                raise publisher.PublishError('Transient confirmation failure')
+            if '/releases/tags/' in endpoint:
+                # GitHub answers 404 here while the Release is still a draft.
+                if not self.published or self.confirmation_fails:
+                    raise publisher.PublishError('GitHub operation failed (api); exit=1')
+                return json.dumps({'id': 1, 'tag_name': TAG, 'draft': False,
+                                   'published_at': '2026-09-11T00:00:00Z'})
+            if '/releases?' in endpoint:
+                return json.dumps([{'id': 1, 'tag_name': TAG, 'draft': not self.published,
+                                    'published_at': '2026-09-11T00:00:00Z' if self.published else None}])
             return json.dumps({'id': 1, 'tag_name': TAG, 'draft': not self.published,
                                'published_at': '2026-09-11T00:00:00Z' if self.published else None})
         return ''
@@ -106,6 +113,18 @@ class PublishTests(unittest.TestCase):
         self.assets[0]['digest'] = 'sha256:' + '0' * 64
         with self.assertRaises(publisher.PublishError): self.execute()
         self.assertFalse(self.published)
+
+    def test_draft_resolution_avoids_the_tags_endpoint(self):
+        # GitHub does not resolve a draft through /releases/tags/, so the uploaded
+        # Release must be read back from the collection endpoint before publication.
+        self.execute()
+        before_publish = []
+        for call in self.calls:
+            if call[:2] == ('release', 'edit'):
+                break
+            before_publish.append(call)
+        self.assertEqual([c for c in before_publish if c[0] == 'api' and '/releases/tags/' in c[1]], [])
+        self.assertTrue(any(c[0] == 'api' and '/releases?' in c[1] for c in before_publish))
 
     def test_wrong_tag_commit_keeps_draft(self):
         self.wrong_target = True
