@@ -14,7 +14,6 @@ import {
   StatusNotice,
   Workspace,
 } from "@/components/workspace";
-import { displaySourceName } from "@/modules/observation/catalog";
 import type {
   ObservationFailureReason,
   ObservationSourceData,
@@ -159,12 +158,7 @@ function parseObservation(value: unknown): ObservationEnvelope | null {
 }
 
 function sourceName(key: string, source: ObservationSourceData): string {
-  const reported = source.observation.source.trim();
-  if (reported) return reported;
-  return displaySourceName(key).replace(
-    /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\uFE0F|\u200D|\s)+/gu,
-    "",
-  );
+  return source.observation.source.trim() || key;
 }
 
 function sourceScore(source: ObservationSourceData): number {

@@ -5,7 +5,7 @@
 - `src/modules/query` 拥有 source 执行、归一化及部分失败结果。主页面发起一次请求，消费 `QueryResult.sources`，不解释供应商原始 JSON。
 - `src/modules/query/legacy.ts` 是旧查询字段的 adapter；供应商直达 route 保留原始或历史 projection。主查询、GET query、POST query 共用查询 implementation。
 - `src/modules/database` 从 `config/databases.json` 读取数据库身份和格式。每次请求固定一个真实目录；reader 按文件身份缓存，切换版本或子集缺件时退休旧 reader，在途请求结束后释放。
-- `src/modules/observation` 保持 Edge 兼容，区分请求地址与服务器出口地址。26 个 adapter 采用 6 路并发，每个 adapter 的完整任务限时 5 秒。
+- `src/modules/observation` 解析可信入口提供的访问者地址（`request-ip.ts`）并保留归一化 source 的读取工具。服务器出口探测已移除；`/myip` 只报告请求地址。
 - `scripts/ipdb_snapshot.py` 拥有 manifest、校验和、版本及附件集合契约；update/install/publish 使用同一契约。格式校验与远端访问仍由现有 Python adapter 执行。
 
 ## 对外行为
@@ -16,7 +16,7 @@
 
 `GET /api/query?ip=...` 与 `POST /api/query` 同时提供归一化结果及旧字段 projection。旧字段只在上游确实提供信息时出现，不把缺失风险字段伪造成 false。POST 未指定 IP 时使用反向代理传来的地址，不再把本地地址替换成 Google DNS。
 
-`GET /api/myip` 的每项 observation 都标明 `request-ip` 或 `server-egress`。没有请求地址时返回 400，所有 source 都失败时返回 503，部分成功时仍展示已有结果。反向代理必须覆盖可信 IP headers，不能把客户端自带的转发 header 当成可信身份。
+`GET /api/myip` 的每项 observation 都标明 `request-ip`。没有请求地址时返回 400，所有 source 都失败时返回 503，部分成功时仍展示已有结果。反向代理必须覆盖可信 IP headers，不能把客户端自带的转发 header 当成可信身份。
 
 IPv4 专用 MMDB 拒绝 IPv6 查询；BIN 错误哨兵、空 MMDB/IPDB 结果不算有效数据。不同 source 可能给出不同地理位置或 ASN，结果保持来源独立，不宣称其中某个必然正确。
 

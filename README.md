@@ -45,7 +45,7 @@ npm ci
 npm run dev
 ```
 
-应用使用 Next.js App Router、React、TypeScript。`/` 查询 IP，`/myip` 展示访问者信息，`/ip/query?ip=8.8.8.8` 转到主页，`/particles` 是演示页。
+应用使用 Next.js App Router、React、TypeScript。`/` 查询 IP，`/myip` 展示访问者信息，`/geoip` 与 `/whois` 提供地址与注册信息页面，`/egress` 诊断出口来源，`/ip/query?ip=8.8.8.8` 转到主页。
 
 可选的高德数据源从服务端环境变量 `AMAP_API_KEY` 读取；未设置时跳过该来源。仓库中不保存 API key。
 
