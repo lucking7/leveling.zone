@@ -39,16 +39,3 @@ export interface ObservationResult {
   sources: Record<string, ObservationSourceData>;
   observation: ObservationSummary;
 }
-
-export interface ObservationRequestContext {
-  requestedIp: string;
-  request(url: string, init?: RequestInit): Promise<Response>;
-}
-
-export interface ObservationAdapter {
-  key: string;
-  name: string;
-  scope: ObservationScope;
-  enabled?: () => boolean;
-  observe(context: ObservationRequestContext): Promise<Omit<ObservationSourceData, 'observation'> | null>;
-}

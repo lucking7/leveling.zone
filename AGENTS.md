@@ -5,7 +5,7 @@
 ## 修改入口
 
 - 网站页面和 API 路由在 `src/app/`，组件在 `src/components/`，`@/*` 指向 `src/*`。编辑前追踪实际 import 和请求 URL。
-- IP 查询 route 与 `src/services/database.ts` 仅作 adapter；统一 implementation 位于 `src/modules/query`，旧输出 projection 位于 `legacy.ts`。字段变化需覆盖主页面、兼容 GET/POST 及供应商直达 route，见 [架构说明](docs/architecture.md)。
+- IP 查询 route 仅作 adapter；统一 implementation 位于 `src/modules/query`，旧输出 projection 位于 `legacy.ts`。字段变化需覆盖主页面、兼容 GET/POST 及供应商直达 route，见 [架构说明](docs/architecture.md)。
 - 服务器读库统一通过 `src/modules/database`，查询与归一化通过 `src/modules/query`。每次查询固定一个数据库目录，优先 `MMDB_PATH`，再 `data/db/current`、`data/db`、`public/db`，缺件不跨版本补齐。reader 按文件身份缓存；下一次查询发现版本变化后退休旧 reader，正在使用的 reader 延迟释放，无需为数据库更新重启应用。
 - `src/app/api/myip/route.ts` 使用 Node.js runtime，基于可信入口提供的访问者 IP 查询本地数据库；禁止调用服务器出口探测源。数据库依赖不得引入客户端或其他 Edge 路由。
 
@@ -26,7 +26,7 @@
 - 数据库工具使用 Python 3.11+，依赖固定在 `scripts/requirements-ipdb.txt`；测试为 `python -m unittest discover -s tests -p 'test_*ipdb*.py' -v`，需先在虚拟环境安装依赖。
 - 更新器改动覆盖失败保旧、完整性、压缩包、并发锁、同尺寸变更及 Release 缺件/篡改。发布器测试必须 mock 远端，真实发布需要单独授权与证据。
 - 网站使用 npm 与 `package-lock.json`。安装用 `npm ci`；开发用 `npm run dev`；按影响运行 `npx --no-install tsc --noEmit --incremental false` 与 `npm run build`。不要顺带升级无关依赖。
-- 查询、reader 或 observation 变更运行 `npm test`，覆盖部分成功、IPv4/IPv6、旧 projection、snapshot 切换、并发释放与完整 adapter deadline。
+- 查询、reader 或 request-ip 解析变更运行 `npm test`，覆盖部分成功、IPv4/IPv6、旧 projection、snapshot 切换与并发释放。
 - `npm run lint` 尚无 ESLint 配置，首次配置交互不是通过。数据库测试、构建成功和实际查询成功分开报告。
 - 文档改动检查链接和 diff；页面改动验证实际路由、加载及错误状态；数据库 API 改动验证相关 IPv4/IPv6 与失败路径。HTTP 200 或空对象不能证明查询成功。
 
