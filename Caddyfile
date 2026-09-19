@@ -31,17 +31,10 @@ rere.ws {
         X-Frame-Options DENY
         X-XSS-Protection "1; mode=block"
         Referrer-Policy strict-origin-when-cross-origin
-
-        # 静态资源缓存
-        Cache-Control "public, max-age=31536000" {
-            path /_next/static/*
-        }
-
-        # API无缓存
-        Cache-Control "no-cache, no-store, must-revalidate" {
-            path /api/*
-        }
     }
+
+    header /_next/static/* >Cache-Control "public, max-age=31536000"
+    header /api/* >Cache-Control "no-cache, no-store, must-revalidate"
 
     # Gzip压缩
     encode {

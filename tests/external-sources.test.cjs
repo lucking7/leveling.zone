@@ -146,16 +146,19 @@ test('private targets and missing AMAP credentials fail before networking', asyn
   assert.equal(calls, 0);
 });
 
-test('fallbacks share one complete deadline and do not start work after it expires', async () => {
+test('fallbacks share one complete deadline and do not start work after it expires', { timeout: 2000 }, async () => {
   let calls = 0;
-  const started = Date.now();
-  await assert.rejects(fetchExternal('ipinfo_demo', IP, async () => {
+  let finish;
+  let signal;
+  await assert.rejects(fetchExternal('ipinfo_demo', IP, async (_url, options) => {
     calls++;
-    await new Promise(resolve => setTimeout(resolve, 25));
-    return jsonResponse({ ip: IP, country: 'US' });
+    signal = options.signal;
+    await new Promise(resolve => { finish = resolve; });
+    return jsonResponse({ error: 'late failure' });
   }, 8), /timed out/);
-  assert.ok(Date.now() - started < 24);
-  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(signal.aborted, true);
+  finish();
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls, 1);
 });
 

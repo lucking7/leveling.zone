@@ -103,19 +103,23 @@ export async function fetchEgressSource(source: EgressSource, options: {
 }): Promise<EgressResult> {
   if (source.enabled === false || !source.endpoint) throw new Error("source disabled");
   const controller = new AbortController();
-  const value = await raceWithDeadline(async () => {
-    if (source.format === "jsonp") return (options.jsonp ?? createJsonpRequest)(source, controller.signal);
-    const response = await (options.fetcher ?? fetch)(source.endpoint, {
-      cache: "no-store",
-      credentials: "omit",
-      referrerPolicy: source.referrerPolicy ?? "no-referrer",
-      signal: controller.signal,
-    });
-    if (!response.ok) throw new Error("request failed");
-    const body = await response.text();
-    return source.format === "text" ? body : JSON.parse(body);
-  }, controller, options.signal, options.timeoutMs ?? 8000);
-  return normalizeEgressResult(source, source.parse(value));
+  try {
+    const value = await raceWithDeadline(async () => {
+      if (source.format === "jsonp") return (options.jsonp ?? createJsonpRequest)(source, controller.signal);
+      const response = await (options.fetcher ?? fetch)(source.endpoint, {
+        cache: "no-store",
+        credentials: "omit",
+        referrerPolicy: source.referrerPolicy ?? "no-referrer",
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("request failed");
+      const body = await response.text();
+      return source.format === "text" ? body : JSON.parse(body);
+    }, controller, options.signal, options.timeoutMs ?? 8000);
+    return normalizeEgressResult(source, source.parse(value));
+  } finally {
+    controller.abort();
+  }
 }
 
 export async function runEgressSources(options: RunEgressOptions): Promise<EgressResult[]> {

@@ -76,21 +76,3 @@ export function resolveDbSnapshot(filenames: readonly string[]): DbSnapshot {
   const directory = path.resolve(databaseDirectories()[0]);
   return { directory, generation: path.basename(directory) || directory };
 }
-
-/** Resolve on every call so a newly activated database release is visible. */
-export function getDbPath(filename: string): string {
-  const directories = databaseDirectories();
-
-  for (const directory of directories) {
-    const candidate = path.resolve(directory, filename);
-    try {
-      if (fs.statSync(candidate).isFile()) return fs.realpathSync(candidate);
-    } catch (error) {
-      if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code || '')) {
-        throw error;
-      }
-    }
-  }
-
-  return path.resolve(directories[0], filename);
-}

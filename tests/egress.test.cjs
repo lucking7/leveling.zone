@@ -106,3 +106,31 @@ test('runner caps concurrency at eight and silently omits failed sources', async
   assert.equal(maximum, 8);
   assert.equal(results.length, 11);
 });
+
+test('native fetch closes unread HTTP error responses after rejection', async () => {
+  const http = require('node:http');
+  let resolveClosed;
+  const closed = new Promise(resolve => { resolveClosed = resolve; });
+  const server = http.createServer((_request, response) => {
+    response.once('close', resolveClosed);
+    response.writeHead(503);
+    response.write('unfinished body');
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  let timer;
+  try {
+    await assert.rejects(fetchEgressSource({
+      ...baseSource, endpoint: `http://127.0.0.1:${server.address().port}/`,
+    }, { signal: new AbortController().signal }), /request failed/);
+    await Promise.race([
+      closed,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Error response remained open after rejection')), 1000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
+});

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryResponse } from '@/modules/query/http';
+import { resolveRequestIp } from '@/modules/observation/request-ip';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
@@ -11,7 +12,6 @@ export async function POST(request: NextRequest) {
     body = await request.json();
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error();
   } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
-  const ip = body.ip ?? request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
-    request.headers.get('x-real-ip') ?? request.ip;
+  const ip = body.ip ?? resolveRequestIp(request.headers, request.ip).ip;
   return queryResponse(ip, true, false);
 }

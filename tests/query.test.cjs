@@ -130,3 +130,20 @@ test('IP2Location normalization retains zero coordinates and security metadata',
   assert.equal(r.security.fraudScore, 42);
   assert.equal(r.security.isProxy, false);
 });
+
+test('legacy risk fields survive unrelated security metadata and preserve false', async () => {
+  for (const isProxy of [0, 1]) {
+    const result = await queryIP('8.8.8.8', { external: false, databases: async () => ({
+      records: {
+        'geolite2-country': { country: { names: { en: 'United States' }, is_in_european_union: false } },
+        'ip2location-px11': { isProxy, proxyType: 'VPN', threat: 'SPAM' },
+      }, errors: {}, generation: 'fixture',
+    }) });
+    const projected = legacy(result);
+    assert.equal(projected.network.proxy, isProxy === 1);
+    assert.equal(projected.network.proxyType, 'VPN');
+    assert.equal(projected.network.threat, 'SPAM');
+  }
+  const empty = legacy({ sources: {}, errors: {} });
+  assert.equal(empty.network.proxy, undefined);
+});

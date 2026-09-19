@@ -18,7 +18,6 @@ export function legacy(result: QueryResult) {
     latitude: selectedLocation?.latitude, longitude: selectedLocation?.longitude,
     timezone: first(value => value.location.timezone), zipcode: first(value => value.location.postalCode),
   };
-  const flags = first(value => value.security);
   const dbip = s.dbip && {
     ...place(s.dbip), country: s.dbip.location.countryCode,
     country_names: { en: s.dbip.location.country },
@@ -42,7 +41,8 @@ export function legacy(result: QueryResult) {
     network: {
       network: first(value => value.network.route),
       isp: first(value => value.network.isp), domain: first(value => value.network.domain),
-      proxy: flags?.isProxy, proxyType: flags?.proxyType, threat: flags?.threat,
+      proxy: first(value => value.security?.isProxy),
+      proxyType: first(value => value.security?.proxyType), threat: first(value => value.security?.threat),
     },
     maxmind: s.maxmind ? { ...place(s.maxmind), network: s.maxmind.network.route } : null,
     dbip,

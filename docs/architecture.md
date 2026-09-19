@@ -15,7 +15,7 @@
 
 公开 IP 保留原有外部多源查询，设置 `?external=false` 可只查本地。私网、回环、链路本地及保留地址不发送给外部 source。POST query 保持本地查询；GET query 支持同一 external 开关。
 
-`GET /api/query?ip=...` 与 `POST /api/query` 同时提供归一化结果及旧字段 projection。旧字段只在上游确实提供信息时出现，不把缺失风险字段伪造成 false。POST 未指定 IP 时使用反向代理传来的地址，不再把本地地址替换成 Google DNS。
+`GET /api/query?ip=...` 与 `POST /api/query` 同时提供归一化结果及旧字段 projection。旧字段只在上游确实提供信息时出现，不把缺失风险字段伪造成 false。POST 未指定 IP 时使用统一的请求地址解析，依次检查 `CF-Connecting-IP`、`X-Real-IP`、`X-Forwarded-For` 首项和 runtime 地址，跳过非法值；本地地址不会被替换成 Google DNS。
 
 `GET /api/myip` 的每项 observation 都标明 `request-ip`。没有请求地址时返回 400，所有 source 都失败时返回 503，部分成功时仍展示已有结果。反向代理必须覆盖可信 IP headers，不能把客户端自带的转发 header 当成可信身份。
 
