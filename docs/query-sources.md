@@ -82,4 +82,4 @@ The registry has 29 entries, of which 28 are enabled. AMap does not return an ob
 
 ## Verification
 
-See `.impeccable/review/source-alignment/` for unit/browser and deployment evidence. Mock fixtures prove behavior under controlled success/failure conditions; real source counts are snapshots, not availability guarantees.
+Run `npm test` for provider parsing, query policy and browser-runner regression tests. Verify rendered states in a running production build separately. Mock fixtures prove behavior under controlled success/failure conditions; historical local captures and real source counts are snapshots, not current deployment or availability guarantees.

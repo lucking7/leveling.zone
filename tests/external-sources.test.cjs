@@ -50,7 +50,7 @@ test('all 18 new parsers accept their observed response shape and retain useful 
         ? new Response(payload)
         : jsonResponse(payload);
       const response = await fetchExternal(id, IP, fetcher);
-      assert.equal(response.normalized[section][field], expected, id);
+      assert.equal(response[section][field], expected, id);
     }
   } finally {
     if (previousKey === undefined) delete process.env.AMAP_API_KEY;
@@ -68,10 +68,10 @@ test('IPinfo uses the official endpoint first, keeps demo fallback, and exposes 
   assert.equal(urls.length, 2);
   assert.equal(urls[0], `https://ipinfo.io/${IP}/json`);
   assert.equal(urls[1], `https://ipinfo.io/widget/demo/${IP}`);
-  assert.equal(response.normalized.location.countryCode, 'US');
+  assert.equal(response.location.countryCode, 'US');
 });
 
-test('IP2Location prefers relay JSON, falls back to compatible HTML, and preserves supplier raw shape', async () => {
+test('IP2Location prefers relay JSON, falls back to compatible HTML, and retains normalized data', async () => {
   const urls = [];
   const fixture = {
     ip: IP, country_name: 'United States', country_code: 'US', latitude: 0, longitude: 0,
@@ -84,9 +84,9 @@ test('IP2Location prefers relay JSON, falls back to compatible HTML, and preserv
   });
   assert.equal(urls.length, 2);
   assert.match(urls[0], /^https:\/\/cloudflare\.html\.zone\/api\/ip\/ip2location\?/);
-  assert.equal(response.raw.location.coordinates, '0, 0');
-  assert.equal(response.raw.network.type, 'DCH');
-  assert.equal(response.raw.security.isProxy, false);
+  assert.equal(response.location.latitude, 0);
+  assert.equal(response.location.longitude, 0);
+  assert.equal(response.security.isProxy, false);
 });
 
 test('echo validation accepts equivalent IPv6 text and rejects a different address', async () => {
@@ -96,7 +96,7 @@ test('echo validation accepts equivalent IPv6 text and rejects a different addre
     requestedUrl = url;
     return jsonResponse({ ip: '2001:4860::8888', country: 'United States' });
   });
-  assert.equal(response.normalized.location.country, 'United States');
+  assert.equal(response.location.country, 'United States');
   assert.match(requestedUrl, /2001%3A4860%3A0%3A0%3A0%3A0%3A0%3A8888/);
   await assert.rejects(
     fetchExternal('ipsb', input, async () => jsonResponse({ ip: '2001:4860::8844', country: 'United States' })),
@@ -129,8 +129,8 @@ test('ip-api.com splits a combined AS field without losing organization', async 
   const response = await fetchExternal('ip_api', IP, async () => jsonResponse({
     status: 'success', query: IP, country: 'United States', as: 'AS15169 Google LLC', org: 'Google LLC',
   }));
-  assert.equal(response.normalized.network.asn, 'AS15169');
-  assert.equal(response.normalized.network.organization, 'Google LLC');
+  assert.equal(response.network.asn, 'AS15169');
+  assert.equal(response.network.organization, 'Google LLC');
 });
 
 test('private targets and missing AMAP credentials fail before networking', async () => {
@@ -193,6 +193,46 @@ test('PCOnline decodes actual GBK bytes before parsing JSONP', async () => {
     Buffer.from('c3c0b9fa', 'hex'), Buffer.from('"});'),
   ]);
   const response = await fetchExternal('pconline', IP, async () => new Response(body));
-  assert.equal(response.normalized.location.description, '美国');
-  assert.equal(response.raw.addr, '美国');
+  assert.equal(response.location.description, '美国');
+});
+
+test('native fetch releases a rejected response before attempting the fallback', async () => {
+  const http = require('node:http');
+  let resolveClosed;
+  const closed = new Promise(resolve => { resolveClosed = resolve; });
+  let timer;
+  let calls = 0;
+  let closedBeforeFallback = false;
+  const server = http.createServer((request, response) => {
+    if (request.url === '/first') {
+      response.once('close', resolveClosed);
+      response.writeHead(429);
+      response.write('unfinished error body');
+      return;
+    }
+    response.end(JSON.stringify({ data: { ip: IP, country: 'US' } }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const result = await fetchExternal('ipinfo_demo', IP, async (_url, init) => {
+      calls++;
+      if (calls === 2) {
+        closedBeforeFallback = await Promise.race([
+          closed.then(() => true),
+          new Promise(resolve => {
+            timer = setTimeout(() => resolve(false), 1_000);
+          }),
+        ]);
+      }
+      return fetch(base + (calls === 1 ? '/first' : '/fallback'), init);
+    });
+    assert.equal(calls, 2);
+    assert.equal(closedBeforeFallback, true, 'previous response body remained open before fallback');
+    assert.equal(result.location.countryCode, 'US');
+  } finally {
+    clearTimeout(timer);
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
 });

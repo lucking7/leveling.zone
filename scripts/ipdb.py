@@ -7,6 +7,7 @@ from array import array
 import contextlib
 import csv
 import datetime as dt
+from dataclasses import asdict
 import gzip
 import ipaddress
 import json
@@ -494,6 +495,7 @@ def main():
     p.add_argument('--tag')
     p = sub.add_parser('verify')
     p.add_argument('--directory', required=True)
+    p.add_argument('--release-tag', help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
         if args.command == 'update':
@@ -501,8 +503,13 @@ def main():
         elif args.command == 'install':
             print(install(args.store, args.repo, args.tag))
         else:
-            m = verify(args.directory)
-            print('Verified ' + m['version'] + ': ' + str(len(m['files'])) + ' databases')
+            if args.release_tag:
+                plan = snapshot.release_plan(args.directory, expected_version=args.release_tag,
+                                             validate_file=validate_file)
+                print(json.dumps(asdict(plan)))
+            else:
+                m = verify(args.directory)
+                print('Verified ' + m['version'] + ': ' + str(len(m['files'])) + ' databases')
     except Exception as exc:
         print('ipdb: ' + (str(exc) if isinstance(exc, Error) else type(exc).__name__), file=sys.stderr)
         return 1

@@ -186,11 +186,11 @@ def release_plan(directory, expected_version=None, validate_file=None):
     if expected_version is not None and manifest['version'] != expected_version:
         raise Error('Manifest version does not match Release tag')
     names = release_names(manifest)
-    assets = {
-        name: AssetSpec(name=name, size=(directory / name).stat().st_size,
-                        sha256=digest(directory / name))
-        for name in names
-    }
+    assets = {item['name']: AssetSpec(name=item['name'], size=item['size'], sha256=item['sha256'])
+              for item in manifest['files']}
+    for name in (MANIFEST_NAME, CHECKSUMS_NAME):
+        assets[name] = AssetSpec(name=name, size=(directory / name).stat().st_size,
+                                sha256=digest(directory / name))
     return ReleasePlan(version=manifest['version'], names=names, assets=assets)
 
 

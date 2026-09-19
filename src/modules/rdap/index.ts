@@ -216,6 +216,7 @@ async function fetchOnce(
     throw new RdapError('RDAP service unavailable', 'UPSTREAM_ERROR', 502);
   } finally {
     clearTimeout(timer);
+    controller.abort();
   }
 }
 

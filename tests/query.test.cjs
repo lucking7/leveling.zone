@@ -76,9 +76,9 @@ test('external normalization hides raw shape and retains false flags', async () 
     location: { country: 'United States', country_code: 'US', latitude: 0, longitude: 0 },
     isp: { asn: 'AS15169', org: 'Google LLC' },
   }) }));
-  assert.equal(r.normalized.network.asn, 'AS15169');
-  assert.equal(r.normalized.location.latitude, 0);
-  assert.equal(r.normalized.network.organization, 'Google LLC');
+  assert.equal(r.network.asn, 'AS15169');
+  assert.equal(r.location.latitude, 0);
+  assert.equal(r.network.organization, 'Google LLC');
 });
 test('legacy GET and POST projections retain source-specific fields and numeric ASN', () => {
   const r = { ip: '8.8.8.8', status: 'ok', errors: {}, generation: 'v1', timestamp: 'fixture', sources: {
@@ -116,7 +116,7 @@ test('public query results never expose dependency exception text', async () => 
   }) });
   assert.equal(JSON.stringify(r).includes('/srv/secret'), false);
 });
-test('IP2Location supplier compatibility retains coordinates and security metadata', async () => {
+test('IP2Location normalization retains zero coordinates and security metadata', async () => {
   const fixture = {
     country_name: 'United States', country_code: 'US', latitude: 0, longitude: 0,
     asn: '15169', as: 'Google LLC', usage_type: 'DCH', is_proxy: false,
@@ -125,9 +125,8 @@ test('IP2Location supplier compatibility retains coordinates and security metada
   const r = await fetchExternal('ip2location_io', '8.8.8.8', async () => ({
     ok: true, text: async () => '<code class="language-json">' + JSON.stringify(fixture) + '</code>',
   }));
-  assert.equal(r.raw.location.coordinates, '0, 0');
-  assert.equal(r.raw.network.type, 'DCH');
-  assert.equal(r.raw.security.fraudScore, 42);
-  assert.equal(r.raw.security.isProxy, false);
-  assert.deepEqual(r.raw.meta.continent, fixture.continent);
+  assert.equal(r.location.latitude, 0);
+  assert.equal(r.location.longitude, 0);
+  assert.equal(r.security.fraudScore, 42);
+  assert.equal(r.security.isProxy, false);
 });

@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 export type RequestIpSource =
   | 'cf-connecting-ip'
   | 'x-real-ip'
@@ -10,47 +12,6 @@ export interface ResolvedRequestIp {
   source: RequestIpSource;
 }
 
-function isValidIpv4(value: string): boolean {
-  const octets = value.split('.');
-  return octets.length === 4 && octets.every((octet) => {
-    if (!/^(0|[1-9]\d{0,2})$/.test(octet)) return false;
-    return Number(octet) <= 255;
-  });
-}
-
-function isValidIpv6(value: string): boolean {
-  if (!value.includes(':') || value.includes('%')) return false;
-
-  let candidate = value;
-  if (candidate.includes('.')) {
-    const separator = candidate.lastIndexOf(':');
-    if (separator < 0) return false;
-    const ipv4 = candidate.slice(separator + 1);
-    if (!isValidIpv4(ipv4)) return false;
-    const octets = ipv4.split('.').map(Number);
-    const embedded = `${((octets[0] << 8) | octets[1]).toString(16)}:${((octets[2] << 8) | octets[3]).toString(16)}`;
-    candidate = `${candidate.slice(0, separator)}:${embedded}`;
-  }
-
-  if (!/^[0-9a-f:]+$/i.test(candidate)) return false;
-  const compression = candidate.indexOf('::');
-  if (compression !== -1 && compression !== candidate.lastIndexOf('::')) return false;
-
-  if (compression === -1) {
-    const groups = candidate.split(':');
-    return groups.length === 8 && groups.every((group) => /^[0-9a-f]{1,4}$/i.test(group));
-  }
-
-  const [left, right] = candidate.split('::');
-  const leftGroups = left ? left.split(':') : [];
-  const rightGroups = right ? right.split(':') : [];
-  const groups = [...leftGroups, ...rightGroups];
-  return (
-    groups.length < 8 &&
-    groups.every((group) => /^[0-9a-f]{1,4}$/i.test(group))
-  );
-}
-
 function normalizeIp(value: string | null | undefined): string | null {
   if (!value) return null;
   let candidate = value.trim().replace(/^"|"$/g, '');
@@ -60,7 +21,7 @@ function normalizeIp(value: string | null | undefined): string | null {
     candidate = candidate.slice(0, candidate.lastIndexOf(':'));
   }
   if (candidate.length > 45) return null;
-  return isValidIpv4(candidate) || isValidIpv6(candidate) ? candidate : null;
+  return !candidate.includes('%') && isIP(candidate) ? candidate : null;
 }
 
 export function resolveRequestIp(headers: Headers, runtimeIp?: string): ResolvedRequestIp {

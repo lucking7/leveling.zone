@@ -63,12 +63,21 @@ npm start
 .venv-ipdb/bin/python -m unittest discover -s tests -p 'test_*ipdb*.py' -v
 ```
 
-`npm run lint` 尚无 ESLint 配置，会进入配置交互。网站整体测试框架尚未建立；数据库测试不等于网站完整验收。
+`npm test` 运行查询、reader、visitor、RDAP 和 egress 的 Node 回归测试。浏览器验证与数据库测试分别执行，不能代替完整网站验收。`npm run lint` 尚无 ESLint 配置，会进入配置交互。
+
+生产构建启动后，可用现有 Playwright 安装运行页面回归（不新增网站运行时依赖）：
+
+```bash
+ORBIT_BASE=http://127.0.0.1:3000 PLAYWRIGHT_MODULE=/path/to/playwright \
+  node tests/browser/lookup-regression.cjs
+```
+
+使用自备 Chromium 时设置 `BROWSER_EXECUTABLE`。该回归以受控 API 响应验证跨地址失败、浏览器历史、security-only、来源切换及复制行为，不代表第三方上游可用。
 
 ## 布局与部署
 
 - `src/app/`、`src/components/`：网站页面、API 与组件。
-- `src/services/`、`src/utils/`：读库服务、路径解析及通用工具。
+- `src/modules/database`、`src/modules/query`：数据库生命周期、查询与归一化；`src/utils/` 提供路径解析等共享工具。
 - `scripts/ipdb.py`、`scripts/publish-ipdb.py`：下载、校验、安装及 Release 发布。
 - `config/databases.json`：唯一更新清单，14 个来源及输出文件名。
 - `tests/`：更新事务、发布失败与容器入口测试。

@@ -1,13 +1,34 @@
 import os
 from pathlib import Path
 import subprocess
+import shutil
+import sys
 import tempfile
 import unittest
 
 ENTRY = Path(__file__).resolve().parents[1] / 'scripts/docker-entrypoint.sh'
+ROOT = ENTRY.parent.parent
 
 
 class EntrypointTests(unittest.TestCase):
+    def test_updater_image_copy_set_can_run_cli(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            for line in (ROOT / 'Dockerfile.ipdb').read_text().splitlines():
+                if not line.startswith('COPY '):
+                    continue
+                _, source, destination = line.split()
+                target = root / destination
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / source, target)
+            env = dict(os.environ)
+            env.pop('PYTHONPATH', None)
+            result = subprocess.run([sys.executable, 'scripts/ipdb.py', '--help'],
+                                    cwd=root, env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('update', result.stdout)
+            self.assertIn('install', result.stdout)
+
     def invoke(self, python_status, command=('npm', 'start'), auto='1'):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)

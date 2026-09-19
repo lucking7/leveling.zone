@@ -65,11 +65,15 @@ def publish(directory, repo, tag, target, dry_run=False):
         raise PublishError('Target must be the full commit SHA')
     directory = directory.resolve(strict=True)
     verifier = Path(__file__).with_name('ipdb.py')
-    result = subprocess.run([sys.executable, str(verifier), 'verify', '--directory', str(directory)],
+    result = subprocess.run([sys.executable, str(verifier), 'verify', '--directory', str(directory),
+                             '--release-tag', tag],
                             capture_output=True, timeout=600)
     if result.returncode:
         raise PublishError('Local database verification failed; nothing published')
-    plan = snapshot.release_plan(directory, expected_version=tag)
+    payload = json.loads(result.stdout)
+    plan = snapshot.ReleasePlan(version=payload['version'], names=tuple(payload['names']),
+                                assets={name: snapshot.AssetSpec(**asset)
+                                        for name, asset in payload['assets'].items()})
     names = plan.names
     if dry_run:
         print(json.dumps({'mode': 'dry-run', 'repo': repo, 'tag': tag, 'target': target,

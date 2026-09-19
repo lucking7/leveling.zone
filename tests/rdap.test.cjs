@@ -259,3 +259,45 @@ test('the whole lookup shares one total deadline', async () => {
   assert.equal(response.status, 504);
   assert.equal((await response.json()).code, 'UPSTREAM_TIMEOUT');
 });
+
+test('native fetch closes unread redirect, error and oversized bodies when the request settles', async () => {
+  const http = require('node:http');
+  for (const mode of ['redirect', 'error', 'content-length']) {
+    let resolveClosed;
+    const closed = new Promise(resolve => { resolveClosed = resolve; });
+    const server = http.createServer((request, response) => {
+      if (request.url === '/first') {
+        response.once('close', resolveClosed);
+        if (mode === 'redirect') response.writeHead(303, { location: 'https://rdap.apnic.net/ip/8.8.8.8' });
+        else if (mode === 'error') response.writeHead(429);
+        else response.writeHead(200, { 'content-length': 3 * 1024 * 1024 });
+        response.write('unfinished body');
+        return;
+      }
+      response.end(JSON.stringify(network()));
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    let timer;
+    try {
+      const lookup = queryRdap('8.8.8.8', {
+        cache: false, timeoutMs: 5_000,
+        fetcher: (url, init) => String(url).endsWith('/ipv4.json')
+          ? Promise.resolve(json(bootstrap4))
+          : fetch(base + (String(url).includes('arin') ? '/first' : '/record'), init),
+      });
+      if (mode === 'redirect') assert.equal((await lookup).registry, 'APNIC');
+      else await assert.rejects(lookup, error => error.code === (mode === 'error' ? 'RATE_LIMITED' : 'UPSTREAM_ERROR'));
+      await Promise.race([
+        closed,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`${mode} body remained open after settlement`)), 1_000);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    }
+  }
+});

@@ -1,4 +1,5 @@
-export type IpFamily = "ipv4" | "ipv6";
+import type { IpFamily } from "../../lib/ip-address";
+export type { IpFamily } from "../../lib/ip-address";
 
 export interface EgressResult {
   id: string;

@@ -7,10 +7,11 @@
 | 请求路径 | 上游处理 |
 | --- | --- |
 | `/ip` | 改写为 `/myip` |
-| `/ip/query*` | 保留路径转发到应用 |
 | 其他路径 | 保留路径转发到应用 |
 
 配置使用 `rere.ws` 和上游 `app:3000`，这是仓库配置值，部署前核实实际目标。应用的 `/ip/query` 页面会跳转到 `/`，配置代理根路径以承接该跳转；部署后仍需验证完整浏览器跳转链。
+
+该配置面向直接接收访问者连接的入口：删除传入的 `CF-Connecting-IP`，以连接地址覆盖 `X-Real-IP`。Caddy 管理 `X-Forwarded-For`；应用优先使用覆盖后的 `X-Real-IP`。若前面还有 CDN 或其他代理，需先按实际可信代理范围配置地址恢复，不能直接放行客户端的转发 header。
 
 ## 本地检查
 
@@ -24,20 +25,25 @@ npm run dev
 
 ```caddyfile
 localhost, 127.0.0.1 {
-    handle /ip/query* {
-        reverse_proxy localhost:3000
-    }
     handle_path /ip {
         rewrite * /myip
-        reverse_proxy localhost:3000
+        reverse_proxy localhost:3000 {
+            header_up -CF-Connecting-IP
+            header_up X-Real-IP {remote_host}
+        }
     }
     handle {
-        reverse_proxy localhost:3000
+        reverse_proxy localhost:3000 {
+            header_up -CF-Connecting-IP
+            header_up X-Real-IP {remote_host}
+        }
     }
 }
 ```
 
 按 Caddy 实际启动日志的协议、端口和证书配置访问 `/ip`、`/ip/query`、`/api/myip` 与静态资源；不要把本地配置假定为仅 HTTP。HTTP 200 只说明代理可达，不代表查询有数据。
+
+向 `/api/myip` 发送自定义 `CF-Connecting-IP`、`X-Real-IP` 和 `X-Forwarded-For`，确认响应使用实际连接地址而非自报地址。另行检查 `external=false` 在 `/ip/query` 跳转后保留。
 
 ## 容器部署与日志
 

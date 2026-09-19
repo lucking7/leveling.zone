@@ -64,9 +64,8 @@ class PublishTests(unittest.TestCase):
                                'published_at': '2026-09-11T00:00:00Z' if self.published else None})
         return ''
 
-    def execute(self, code=0, dry_run=False):
-        with patch.object(publisher.subprocess, 'run', return_value=subprocess.CompletedProcess([], code)), \
-             patch.object(publisher, 'gh', side_effect=self.remote), \
+    def execute(self, dry_run=False):
+        with patch.object(publisher, 'gh', side_effect=self.remote), \
              patch.object(publisher.time, 'sleep'):
             publisher.publish(self.directory, 'lucking7/leveling.zone', TAG, SHA, dry_run)
 
@@ -84,7 +83,29 @@ class PublishTests(unittest.TestCase):
             self.assertEqual(plan.assets[name].sha256, publisher.digest(self.directory / name))
 
     def test_local_failure_makes_no_remote_calls(self):
-        with self.assertRaises(publisher.PublishError): self.execute(code=1)
+        (self.directory / 'data.csv').write_text('tampered\n')
+        with self.assertRaises(publisher.PublishError): self.execute()
+        self.assertEqual(self.calls, [])
+
+    def test_invalid_format_with_valid_checksums_makes_no_remote_calls(self):
+        (self.directory / 'data.csv').write_text('asn\nnot-a-number\n')
+        publisher.snapshot.write(self.directory, TAG, [{
+            'id': 'data', 'filename': 'data.csv', 'format': 'csv',
+            'source': 'fixture.invalid', 'columns': ['asn'],
+        }])
+        with self.assertRaises(publisher.PublishError): self.execute()
+        self.assertEqual(self.calls, [])
+
+    def test_release_plan_hashes_each_file_once(self):
+        with patch.object(publisher.snapshot, 'digest', wraps=publisher.snapshot.digest) as digest:
+            publisher.snapshot.release_plan(self.directory, expected_version=TAG)
+        self.assertCountEqual([call.args[0].name for call in digest.call_args_list],
+                              ['data.csv', 'manifest.json', 'SHA256SUMS'])
+
+    def test_verification_retains_subprocess_timeout(self):
+        with patch.object(publisher.subprocess, 'run', side_effect=subprocess.TimeoutExpired('verify', 600)) as run:
+            with self.assertRaises(subprocess.TimeoutExpired): self.execute()
+        self.assertEqual(run.call_args.kwargs['timeout'], 600)
         self.assertEqual(self.calls, [])
 
     def test_existing_tag_without_release_is_rejected(self):

@@ -7,19 +7,21 @@ rere.ws {
         format json
     }
 
-    # /ip/query 由应用自己跳转到 /；/ip 映射到访问者页面
-    handle /ip/query* {
-        reverse_proxy app:3000
-    }
-
+    # /ip 映射到访问者页面；直接入口只信任连接地址。
     handle_path /ip {
         rewrite * /myip
-        reverse_proxy app:3000
+        reverse_proxy app:3000 {
+            header_up -CF-Connecting-IP
+            header_up X-Real-IP {remote_host}
+        }
     }
 
     # 其余路径（页面、API、静态资源）交给应用处理
     handle {
-        reverse_proxy app:3000
+        reverse_proxy app:3000 {
+            header_up -CF-Connecting-IP
+            header_up X-Real-IP {remote_host}
+        }
     }
 
     # 全局头部配置

@@ -29,3 +29,25 @@ test('resolveRequestIp uses deployment header precedence and rejects invalid val
   );
   assert.equal(resolveRequestIp(new Headers({ 'x-real-ip': 'fe80::1%en0' })).source, 'unavailable');
 });
+
+test('request address normalization retains literal IP and header-wrapper boundaries', () => {
+  const valid = [
+    ['203.0.113.8', '203.0.113.8'],
+    ['"203.0.113.8"', '203.0.113.8'],
+    ['203.0.113.8:443', '203.0.113.8'],
+    ['[2001:db8::1]:443', '2001:db8::1'],
+    ['2001:0db8:0000:0000:0000:0000:0000:0001', '2001:0db8:0000:0000:0000:0000:0000:0001'],
+    ['::', '::'],
+    ['::ffff:192.0.2.1', '::ffff:192.0.2.1'],
+  ];
+  for (const [input, expected] of valid) {
+    assert.deepEqual(resolveRequestIp(new Headers({ 'x-real-ip': input })), {
+      ip: expected, source: 'x-real-ip',
+    }, input);
+  }
+  for (const input of ['010.0.0.1', '256.0.0.1', '1.2.3', '1:2:3:4:5:6:7',
+    '1:2:3:4:5:6:7:8:9', '1::2::3', 'fe80::1%en0', '[fe80::1%en0]:443',
+    '::ffff:192.0.02.1', 'host.example', '12345::1']) {
+    assert.equal(resolveRequestIp(new Headers({ 'x-real-ip': input })).source, 'unavailable', input);
+  }
+});

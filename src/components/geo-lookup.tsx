@@ -2,7 +2,8 @@
 
 import { SourcePicker, SourceData } from "@/components/source-data";
 
-import { CountryLabel } from "@/components/country-flag";
+import { SourcePanels } from "./source-panels";
+import { bestSource, isRecord, isSourceResult, sourceEntries, sourceOptions } from "./source-model";
 
 import {
   useCallback,
@@ -12,18 +13,15 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import Link from "next/link";
 
 import { useLocale, type Translate } from "@/components/locale";
 import {
   CopyButton,
-  DataPanel,
-  DataRow,
   LookupForm,
   StatusNotice,
   Workspace,
 } from "@/components/workspace";
-import type { QueryResult, SourceResult } from "@/modules/query/types";
+import type { QueryResult } from "@/modules/query/types";
 
 type LookupError =
   "invalid-ip" | "invalid-response" | "request-failed" | "unavailable";
@@ -32,10 +30,6 @@ export interface GeoLookupProps {
   initialIp?: string;
   initialExternal?: boolean;
   rootCompatibility?: boolean;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isQueryResult(value: unknown): value is QueryResult {
@@ -48,84 +42,7 @@ function isQueryResult(value: unknown): value is QueryResult {
     isRecord(value.errors) &&
     Object.values(value.errors).every((item) => typeof item === "string") &&
     isRecord(value.sources) &&
-    Object.values(value.sources).every(
-      (source) =>
-        isRecord(source) &&
-        typeof source.label === "string" &&
-        isRecord(source.location) &&
-        isRecord(source.network) &&
-        Object.values(source.network).every(
-          (item) => item == null || typeof item === "string",
-        ) &&
-        Object.entries(source.location).every(
-          ([key, item]) =>
-            item == null ||
-            (["latitude", "longitude"].includes(key)
-              ? typeof item === "number" && Number.isFinite(item)
-              : typeof item === "string"),
-        ),
-    )
-  );
-}
-
-function text(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized || null;
-}
-
-function coordinate(value: number | undefined): string | null {
-  return typeof value === "number" && Number.isFinite(value)
-    ? String(value)
-    : null;
-}
-
-function coordinates(source: SourceResult): string | null {
-  const latitude = coordinate(source.location.latitude);
-  const longitude = coordinate(source.location.longitude);
-  return latitude !== null && longitude !== null
-    ? `${latitude}, ${longitude}`
-    : null;
-}
-
-function locationSummary(source: SourceResult, t: Translate): string {
-  if (text(source.location.description)) return source.location.description!.trim();
-  const parts = [
-    source.location.city,
-    source.location.region,
-    source.location.country,
-  ]
-    .map(text)
-    .filter((item): item is string => Boolean(item));
-  return parts.join(", ") || t("未提供", "Not provided");
-}
-
-function networkSummary(source: SourceResult, t: Translate): string {
-  return (
-    text(source.network.organization) ||
-    text(source.network.isp) ||
-    text(source.network.description) ||
-    text(source.network.asn) ||
-    t("未提供", "Not provided")
-  );
-}
-
-function sourceScore(source: SourceResult): number {
-  const locationValues = Object.values(source.location).filter(
-    (value) => value !== undefined && value !== null && value !== "",
-  ).length;
-  const networkValues = Object.values(source.network).filter(
-    (value) => value !== undefined && value !== null && value !== "",
-  ).length;
-  return locationValues + networkValues;
-}
-
-function bestSource(entries: Array<[string, SourceResult]>): string {
-  return (
-    entries.reduce(
-      (best, entry) =>
-        sourceScore(entry[1]) > sourceScore(best[1]) ? entry : best,
-      entries[0],
-    )?.[0] ?? ""
+    Object.values(value.sources).every(isSourceResult)
   );
 }
 
@@ -154,128 +71,6 @@ function errorMessage(error: LookupError, ip: string, t: Translate): string {
   );
 }
 
-function DetailPanels({ ip, source }: { ip: string; source: SourceResult }) {
-  const { t } = useLocale();
-  const version = ip.includes(":") ? "IPv6" : "IPv4";
-  const country = text(source.location.country);
-  const countryCode = text(source.location.countryCode);
-  const countryRegion = [country, countryCode && `(${countryCode})`]
-    .filter(Boolean)
-    .join(" ");
-  const asn = text(source.network.asn);
-
-  return (
-    <>
-      <DataPanel
-        title={ip}
-        actions={
-          <>
-            <Link href={`/whois/${encodeURIComponent(ip)}`}>
-              Whois
-            </Link>
-            <span className="ip-version">{version}</span>
-            <CopyButton value={ip} label={t("复制 IP", "Copy IP")} compact />
-          </>
-        }
-      >
-        <DataRow mono label={t("地址", "Address")} value={ip} copyValue={ip} />
-        {text(source.location.continent) && (
-          <DataRow
-            label={t("洲", "Continent")}
-            value={text(source.location.continent)}
-          />
-        )}
-        {countryRegion && (
-          <DataRow
-            label={t("国家或地区", "Country or region")}
-            value={countryRegion}
-          />
-        )}
-        {text(source.location.region) && (
-          <DataRow
-            label={t("地区", "Region")}
-            value={text(source.location.region)}
-          />
-        )}
-        {text(source.location.city) && (
-          <DataRow
-            label={t("城市", "City")}
-            value={text(source.location.city)}
-          />
-        )}
-        {text(source.location.timezone) && (
-          <DataRow mono
-            label={t("时区", "Time Zone")}
-            value={text(source.location.timezone)}
-          />
-        )}
-        {coordinates(source) && (
-          <DataRow mono
-            label={t("坐标", "Coordinates")}
-            value={coordinates(source)}
-            copyValue={coordinates(source) ?? undefined}
-          />
-        )}
-        <DataRow
-          label={t("位置", "Location")}
-          value={<CountryLabel code={countryCode}>{locationSummary(source, t)}</CountryLabel>}
-          copyValue={locationSummary(source, t)}
-        />
-      </DataPanel>
-
-      <DataPanel title={t("网络", "Network")}>
-        {text(source.network.isp) && (
-          <DataRow label="ISP" value={text(source.network.isp)} />
-        )}
-        {text(source.network.organization) && (
-          <DataRow
-            label={t("IP 组织", "IP Organization")}
-            value={text(source.network.organization)}
-          />
-        )}
-        {asn && (
-          <DataRow mono
-            label="ASN"
-            value={asn.toUpperCase().startsWith("AS") ? asn : `AS${asn}`}
-          />
-        )}
-        {text(source.network.route) && (
-          <DataRow mono
-            label={t("路由", "Route")}
-            value={text(source.network.route)}
-          />
-        )}
-        {text(source.network.domain) && (
-          <DataRow mono
-            label={t("域名", "Domain")}
-            value={text(source.network.domain)}
-          />
-        )}
-        {text(source.network.handle) && (
-          <DataRow mono
-            label={t("网络标识", "Network handle")}
-            value={text(source.network.handle)}
-          />
-        )}
-        {text(source.network.description) && (
-          <DataRow
-            label={t("描述", "Description")}
-            value={text(source.network.description)}
-          />
-        )}
-        {!Object.values(source.network).some(
-          (value) => value !== undefined && value !== null && value !== "",
-        ) && (
-          <DataRow
-            label={t("网络", "Network")}
-            value={t("未提供", "Not provided")}
-          />
-        )}
-      </DataPanel>
-    </>
-  );
-}
-
 export function GeoLookup({
   initialIp = "",
   initialExternal = true,
@@ -298,11 +93,10 @@ export function GeoLookup({
 
   const entries = useMemo(
     () =>
-      Object.entries(result?.sources ?? {})
-        .filter(([, source]) => sourceScore(source) > 0)
-        .sort(([left], [right]) => left.localeCompare(right)),
+      sourceEntries(result?.sources ?? {}),
     [result],
   );
+  const options = sourceOptions(entries, t);
   const currentSource =
     entries.find(([key]) => key === selectedSource) ?? entries[0];
 
@@ -354,9 +148,7 @@ export function GeoLookup({
 
         if (requestId !== sequence.current || controller.signal.aborted) return;
         if ((response.ok || response.status === 503) && isQueryResult(body) && body.ip === ip) {
-          const nextEntries = Object.entries(body.sources)
-            .filter(([, source]) => sourceScore(source) > 0)
-            .sort(([left], [right]) => left.localeCompare(right));
+          const nextEntries = sourceEntries(body.sources);
           if (nextEntries.length === 0) {
             setFailure({ kind: "unavailable", ip });
             return;
@@ -512,7 +304,7 @@ export function GeoLookup({
         {result && currentSource && (
           <div className="lookup-results">
             <div className="result-actions">
-              <SourcePicker sources={entries.map(([key, source]) => ({ id: key, label: source.label, network: networkSummary(source, t), location: locationSummary(source, t), countryCode: source.location.countryCode }))} selected={currentSource[0]} onChange={setSelectedSource} />
+              <SourcePicker sources={options} selected={currentSource[0]} onChange={setSelectedSource} />
               <CopyButton
                 value={JSON.stringify(result, null, 2)}
                 label={t("复制完整 JSON", "Copy full JSON")}
@@ -520,9 +312,9 @@ export function GeoLookup({
               />
             </div>
 
-            <DetailPanels ip={result.ip} source={currentSource[1]} />
+            <SourcePanels ip={result.ip} source={currentSource[1]} />
 
-            <SourceData sources={entries.map(([key, source]) => ({ id: key, label: source.label, network: networkSummary(source, t), location: locationSummary(source, t), countryCode: source.location.countryCode }))} selected={currentSource[0]} raw={result} />
+            <SourceData sources={options} selected={currentSource[0]} raw={result} />
           </div>
         )}
       </div>

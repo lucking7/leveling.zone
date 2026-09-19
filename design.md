@@ -159,25 +159,11 @@ The identity comes from Space Grotesk, the gradient ORBIT mark and Geist wordmar
 - One selected real source drives the readable summary; additional sources and raw data remain available.
 - OpenTUI Mono is self-hosted for inputs, search actions, IP panel titles, technical record values, and raw JSON. Space Grotesk remains the surrounding interface face.
 
-### IP.SB alignment, implemented 2026-09-12
+### Reference and font choice
 
-The user requested continued alignment and selected **OpenTUI Mono**. This is the real official typeface from [OpenTUI](https://github.com/anomalyco/opentui/tree/main/packages/web/public/fonts), distributed unchanged under SIL OFL 1.1. Regular, Bold, Italic and BoldItalic WOFF2 files, the license, and source hashes are stored in [public/fonts/opentui-mono](public/fonts/opentui-mono/SOURCE.md). It is a web subset; Chinese falls back to the system font.
+The visual reference is IP.SB, with intentional differences: ORBIT branding, bilingual controls, real multi-source selection, no advertisements, and no fictional data. The root page is a GeoIP search; visitor data remains at `/myip`.
 
-The baseline comparison used the live [IP.SB homepage](https://ip.sb/), [GeoIP](https://ip.sb/geoip/8.8.8.8) and [Whois](https://ip.sb/whois/8.8.8.8) at 1440×900 and 390×844. The result below describes the subsequent implemented alignment, not pixel-identical branding or data.
-
-| Aspect | Before | Current | Reference / decision |
-| --- | --- | --- | --- |
-| Technical record values | Body sans-serif | OpenTUI Mono, GeoIP 15px / Whois 14px | Explicit user font choice replaces Berkeley Mono |
-| Result panel heading with IPv4/actions | 65px desktop / 77px mobile | 56px at both widths | Aligned; long multiline titles can still grow |
-| Desktop value-column start at 1440px | x=518.5px | x=533px | Aligned with 200px labels and 16px column gap |
-| Mobile Address row | 84px | 58–59px, single-line values | Close to reference 58px; copy hit area stays 44px |
-| Search input / button | 40px / 41px desktop, 48px mobile | 38px desktop, 50px mobile, lighter mono label | Aligned geometry; empty-state controls remain 52px desktop |
-| Neutral palette | Dark gray text, slightly darker fills | Black text, #737373 labels, #fafafa fills, #e5e5e5 dividers | Aligned with sampled light reference |
-| Whois density | Introductory paragraph, verbose localized time, multiline contacts | Title directly above search; YYYY-MM-DD HH:mm UTC; naturally wrapping comma-separated contacts | Compacted without altering copied addresses or raw RDAP |
-
-Retained differences: ORBIT branding, bilingual controls, functional route set, no advertisements, real multi-source selector and data attribution. ORBIT's root remains the GeoIP search, while visitor data remains at /myip; IP.SB's homepage uses connection panels. Additional real RDAP fields and registry notes stay available. No fake data, added services or ad-sized empty spacers are introduced to mimic reference content.
-
-Evidence: [baseline measurements](.impeccable/review/ip-sb-comparison/measurements.json), [current geometry and font checks](.impeccable/review/alignment-build/geometry-font.json), [actual browser font](.impeccable/review/alignment-build/actual-font.json), [current mobile](.impeccable/review/alignment-build/geoip-390.png), [current Whois](.impeccable/review/alignment-build/whois-1440.png), and [interaction checks](.impeccable/review/alignment-build/checks.json). These checks cover Chromium viewports rather than physical phones.
+The user selected OpenTUI Mono instead of the reference site's Berkeley Mono. Font files, SIL OFL license and source hashes are maintained in [public/fonts/opentui-mono](public/fonts/opentui-mono/SOURCE.md). Chinese uses the platform fallback. Current geometry and interaction requirements are defined below; historical local captures are not acceptance evidence for later builds.
 
 ## Colors
 
@@ -311,37 +297,37 @@ Notices use a 10px radius and `14px 18px` padding. Error notices pair failure re
 - **Don't** hide source identity, failure state, or the estimated nature of GeoIP data.
 - **Don't** introduce shadows, gradients, glass effects, or decorative color that competes with the data.
 
-### Detailed alignment pass, 2026-09-12
+### Compact results and responsive controls
 
 The GeoIP hero uses a responsive 24–34px title with normal font line height and an 18px gap before search. At 390px the English title stays on one line, starts at y=109px and the search starts at approximately y=157.5px. Desktop hero inputs use 16px OpenTUI Mono, 22px horizontal padding and 52px height; its button uses 14px and 26px horizontal padding. At 768px and below these controls use 50px height and 18px padding, while record rows and page gutters switch together to their mobile layout. At 320px, titles wrap naturally.
 
 Record values use secondary text (#525252 light, #b9b9b9 dark), keeping titles black/primary and labels muted. Compact copy controls outside record rows remain visible; row controls appear on hover or focus-within, remain visible during success/failure feedback, and always show on touch devices. On mobile, IPv6 headings take a full-width line and actions follow below, preserving the address measure; IPv4 retains the compact single-row header. Copy failure feedback sits beside its trigger, inside the panel bounds.
 
-Reference and before captures: [.impeccable/review/deep-alignment](.impeccable/review/deep-alignment/before.json). Existing differences remain intentional: ORBIT, OpenTUI Mono, bilingual controls, no ads/examples/history, complete real data and visible mobile copy targets.
+ORBIT branding, OpenTUI Mono, bilingual controls, complete source data and visible mobile copy targets remain intentional differences from the reference. Do not add advertisements, examples or recent-query history.
 
-### Disclosure and dark-action polish, 2026-09-12
+### Disclosure and dark actions
 
 Primary query buttons use dedicated button tokens: #fafafa / #000 in light mode, #fff / #171717 in dark mode, and #f0f0f0 / #dedede hover fills. Text selection reverses canvas and text colors. Source and RDAP disclosures use a 56px native summary with a right chevron, an open-state divider, inset keyboard focus and a 200ms rotation only when reduced motion is not requested.
 
 Compact copy failures in rows and panel headings remain beside the trigger, within the panel. Toolbar copy failures anchor below the full action row, preventing either edge from clipping at 320px.
 
 
-### Selected logo (2026-09-13)
+### Logo and wordmark
 
 The user selected the ilanla logo shown in [Chatto / Beew Studio’s post](https://x.com/itschatto/status/2081380623323738266). Its rounded diagonal silhouette, two inset tail cuts and circular counter are reconstructed as SVG. Use the orange gradient mark (#ffb44d → #ef7b35 → #9d4629, upper right to lower left) at 30px beside a 27px Geist Sans Bold Orbit wordmark. Preserve the existing interface and OpenTUI Mono data typography. The icon alone serves the favicon. The wordmark is an ORBIT adaptation; the source post does not specify that typography. See [logo assets and provenance](docs/design/orbit-logo.md).
 
 
-### Result page alignment (2026-09-13)
+### Result actions and technical labels
 
-Reference pages: [Whois](https://ip.sb/whois/146.75.189.23) and [GeoIP](https://ip.sb/geoip/146.75.189.23), inspected at desktop and mobile widths. Retain the 920px outer shell, 56px panel headings, 48px desktop rows and stacked mobile rows. GeoIP displays a muted IPv4/IPv6 badge beside Whois, without repeating a version row. Whois uses an IP Geolocation link and green RDAP badge. Plain text field values offer copy actions, with 44px mobile targets and existing error feedback. Data reflects the selected source; registered country must not be substituted with geolocation country. No reference advertisements or unsupported ASN/domain navigation are added.
+Retain the 920px outer shell, 56px panel headings, 48px desktop rows and stacked mobile rows. GeoIP displays a muted IPv4/IPv6 badge beside Whois, without repeating a version row. Whois uses an IP Geolocation link and green RDAP badge. Plain text field values offer copy actions, with 44px mobile targets and existing error feedback. Data reflects the selected source; registered country must not be substituted with geolocation country. No reference advertisements or unsupported ASN/domain navigation are added.
 
 Brand typography is configured independently through `--font-brand`, `--brand-size`, `--brand-weight`, and `--brand-tracking` in `src/app/globals.css`. Current values are Geist Sans, 27px, 700 and -1px. The OpenTUI Mono data font is unchanged.
 
 
-2026-09-13 typography update: Orbit uses locally hosted Geist Sans Bold from Vercel’s public font repository, at 27px / 700 / -1px tracking. This is the public font family, not a claim that the standalone Vercel SVG logotype is an unmodified font. Font provenance and license: `public/fonts/geist/SOURCE.md` and `OFL.txt`.
+Orbit uses locally hosted Geist Sans Bold from Vercel’s public font repository, at 27px / 700 / -1px tracking. This is the public font family, not a claim that the standalone Vercel SVG logotype is an unmodified font. Font provenance and license: `public/fonts/geist/SOURCE.md` and `OFL.txt`.
 
 
-Header navigation uses the existing Lucide SVG family: Monitor (My IP), MapPin (GeoIP), FileSearch (Whois), and Github. Use 16px icons, 2px rounded strokes and a 7px text gap in both desktop and mobile navigation. Icons inherit the active/muted link color and are decorative (`aria-hidden`); the visible labels retain accessible names.
+Header navigation uses the existing Lucide SVG family for My IP, GeoIP, Whois, Egress and GitHub. Use 16px icons, 2px rounded strokes and a 7px text gap in both desktop and mobile navigation. Icons inherit the active/muted link color and are decorative (`aria-hidden`); the visible labels retain accessible names.
 
 Language switch: icon-only Lucide Languages at 18px / 2px stroke, matching the theme control. A right-aligned 176px menu offers 简体中文 and English with a current-language check. Desktop trigger is 36px and mobile targets are 44px.
 

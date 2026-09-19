@@ -1,5 +1,3 @@
-export type ObservationScope = 'request-ip' | 'server-egress';
-
 export type ObservationFailureReason =
   | 'timeout'
   | 'http-error'
@@ -8,34 +6,14 @@ export type ObservationFailureReason =
   | 'lookup-failed'
   | 'not-installed';
 
-export interface ObservationProvenance {
-  scope: ObservationScope;
-  source: string;
-}
-
-export interface ObservationSourceData {
-  ip?: string;
-  location?: Record<string, unknown>;
-  network?: Record<string, unknown>;
-  security?: Record<string, unknown>;
-  accuracy?: Record<string, unknown>;
-  meta?: Record<string, unknown>;
-  observation: ObservationProvenance;
-}
-
 export interface ObservationFailure {
   source: string;
   reason: ObservationFailureReason;
 }
 
 export interface ObservationSummary {
-  semantics: 'mixed' | 'request-ip';
+  semantics: 'request-ip';
   requestIpSourceCount: number;
-  serverEgressSourceCount: number;
+  serverEgressSourceCount: 0;
   failures: ObservationFailure[];
-}
-
-export interface ObservationResult {
-  sources: Record<string, ObservationSourceData>;
-  observation: ObservationSummary;
 }

@@ -5,7 +5,8 @@
 - `src/modules/query` 拥有 source 执行、归一化及部分失败结果。主页面发起一次请求，消费 `QueryResult.sources`，不解释供应商原始 JSON。
 - `src/modules/query/legacy.ts` 是旧查询字段的 adapter，由 `/api/query` 的兼容输出使用。主查询、GET query、POST query 共用查询 implementation。
 - `src/modules/database` 从 `config/databases.json` 读取数据库身份和格式。每次请求固定一个真实目录；reader 按文件身份缓存，切换版本或子集缺件时退休旧 reader，在途请求结束后释放。
-- `src/modules/observation` 解析可信入口提供的访问者地址（`request-ip.ts`）并保留归一化 source 的读取工具。服务器出口探测已移除；`/myip` 只报告请求地址。
+- `src/modules/observation` 解析可信入口提供的访问者地址（`request-ip.ts`）并定义 visitor observation 元数据。服务器出口探测已移除；`/myip` 只报告请求地址。
+- GeoIP 与 My IP 共享 `source-model.ts` 和 `source-panels.tsx` 的规范化来源展示。My IP 另由 `visitor-model.ts` 验证同一 IP、request-ip provenance 和来源计数；security-only 来源仍可选择并读取完整 JSON，摘要优先使用位置或网络信息。
 - `scripts/ipdb_snapshot.py` 拥有 manifest、校验和、版本及附件集合契约；update/install/publish 使用同一契约。格式校验与远端访问仍由现有 Python adapter 执行。
 
 ## 对外行为
@@ -19,6 +20,8 @@
 `GET /api/myip` 的每项 observation 都标明 `request-ip`。没有请求地址时返回 400，所有 source 都失败时返回 503，部分成功时仍展示已有结果。反向代理必须覆盖可信 IP headers，不能把客户端自带的转发 header 当成可信身份。
 
 IPv4 专用 MMDB 拒绝 IPv6 查询；BIN 错误哨兵与 IPDB 失败码仍算查询失败，而 MMDB 对未覆盖地址返回空记录，既不产出数据也不计入 errors。空结果不算有效数据。不同 source 可能给出不同地理位置或 ASN，结果保持来源独立，不宣称其中某个必然正确。
+
+Whois 在同一页面状态中同步地址和浏览器历史，新查询失败保留上一成功结果并标注。RDAP 每次请求结束均释放响应传输，外部 GeoIP fallback 在下一次尝试前关闭上一响应；响应超时不只限制返回时间，也取消底层请求。
 
 ## 验证
 

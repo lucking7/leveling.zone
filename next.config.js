@@ -2,8 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    // The /ip/query redirect reads useSearchParams without a Suspense boundary.
-    missingSuspenseWithCSRBailout: false,
     serverComponentsExternalPackages: ['maxmind'],
   },
   output: 'standalone',

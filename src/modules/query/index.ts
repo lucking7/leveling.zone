@@ -31,7 +31,7 @@ export async function queryIP(ip: string, options: {
     }));
     results.forEach((result, i) => {
       const id = externalIds[i];
-      if (result.status === 'fulfilled') sources[id] = result.value.normalized;
+      if (result.status === 'fulfilled') sources[id] = result.value;
       else errors[id] = 'Source unavailable';
     });
   }

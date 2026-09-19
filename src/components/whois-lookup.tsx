@@ -10,7 +10,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { useRouter } from "next/navigation";
+import { ipFamily } from "@/lib/ip-address";
 import type {
   RdapEntity,
   RdapErrorCode,
@@ -123,49 +123,6 @@ function isRdapResult(value: unknown): value is RdapResult {
   );
 }
 
-function isIpv4(value: string): boolean {
-  const parts = value.split(".");
-  return (
-    parts.length === 4 &&
-    parts.every(
-      (part) =>
-        /^(0|[1-9]\d{0,2})$/.test(part) &&
-        Number(part) >= 0 &&
-        Number(part) <= 255,
-    )
-  );
-}
-
-function isIpv6(value: string): boolean {
-  if (
-    !value.includes(":") ||
-    value.includes("%") ||
-    /[^0-9a-f:.]/i.test(value)
-  ) {
-    return false;
-  }
-
-  let candidate = value;
-  if (candidate.includes(".")) {
-    const separator = candidate.lastIndexOf(":");
-    if (separator < 0 || !isIpv4(candidate.slice(separator + 1))) return false;
-    candidate = `${candidate.slice(0, separator)}:0:0`;
-  }
-
-  if ((candidate.match(/::/g) ?? []).length > 1) return false;
-  const hasCompression = candidate.includes("::");
-  const parts = hasCompression
-    ? candidate.split("::").flatMap((side) => (side ? side.split(":") : []))
-    : candidate.split(":");
-
-  if (parts.some((part) => !/^[0-9a-f]{1,4}$/i.test(part))) return false;
-  return hasCompression ? parts.length < 8 : parts.length === 8;
-}
-
-function isIpAddress(value: string): boolean {
-  return isIpv4(value) || isIpv6(value);
-}
-
 function safeHttpsUrl(value: string): string | null {
   try {
     const url = new URL(value);
@@ -246,7 +203,6 @@ function DescriptionBlock({ block }: { block: RdapTextBlock }) {
 }
 
 export function WhoisLookup({ initialIp = "" }: WhoisLookupProps) {
-  const router = useRouter();
   const { t } = useLocale();
   const [input, setInput] = useState(initialIp);
   const [result, setResult] = useState<RdapResult | null>(null);
@@ -330,57 +286,51 @@ export function WhoisLookup({ initialIp = "" }: WhoisLookupProps) {
   }, []);
 
   useEffect(() => {
-    const routeIp = initialIp.trim();
-    setInput(initialIp);
-    if (!routeIp) {
-      controllerRef.current?.abort();
+    const restore = () => {
+      const match = /^\/whois\/([^/]+)$/.exec(window.location.pathname);
+      let ip = match?.[1] ?? "";
+      try { ip = decodeURIComponent(ip); } catch { /* Invalid escapes fail validation below. */ }
+      setInput(ip);
+      if (ip && ipFamily(ip)) {
+        void runLookup(ip);
+      } else {
+        controllerRef.current?.abort();
+        requestRevision.current++;
+        setIsLoading(false);
+        setFailure(ip ? { kind: "VALIDATION" } : null);
+        if (!ip) setResult(null);
+      }
+    };
+    restore();
+    window.addEventListener("popstate", restore);
+    return () => {
       requestRevision.current++;
-      setResult(null);
-      setFailure(null);
-      setIsLoading(false);
-      return;
-    }
-    if (!isIpAddress(routeIp)) {
+      controllerRef.current?.abort();
+      window.removeEventListener("popstate", restore);
+    };
+  }, [initialIp, runLookup]);
+
+  const lookupInput = () => {
+    const ip = input.trim();
+    setInput(ip);
+    if (!ipFamily(ip)) {
       controllerRef.current?.abort();
       requestRevision.current++;
       setIsLoading(false);
       setFailure({ kind: "VALIDATION" });
       return;
     }
-    void runLookup(routeIp);
-  }, [initialIp, runLookup]);
-
-  useEffect(
-    () => () => {
-      requestRevision.current++;
-      controllerRef.current?.abort();
-    },
-    [],
-  );
+    const path = `/whois/${encodeURIComponent(ip)}`;
+    if (window.location.pathname !== path) window.history.pushState({}, "", path);
+    void runLookup(ip);
+  };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const ip = input.trim();
-    setInput(ip);
-    if (!isIpAddress(ip)) {
-      controllerRef.current?.abort();
-      requestRevision.current++;
-      setIsLoading(false);
-      setFailure({ kind: "VALIDATION" });
-      return;
-    }
-
-    if (ip === initialIp.trim()) {
-      void runLookup(ip);
-      return;
-    }
-    router.push(`/whois/${encodeURIComponent(ip)}`);
+    lookupInput();
   };
 
-  const retry = () => {
-    const ip = input.trim();
-    if (isIpAddress(ip)) void runLookup(ip);
-  };
+  const retry = lookupInput;
 
   const failureMessage = failure
     ? {

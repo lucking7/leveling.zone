@@ -9,3 +9,10 @@ data
 public/db
 __pycache__
 *.pyc
+.pi
+.impeccable
+.firecrawl
+docs/deployment/gomami-jp.md
+deploy/gomami-jp/nexttrace-api-proxy.service
+deploy/gomami-jp/nexttrace-api-only.override.conf
+logs

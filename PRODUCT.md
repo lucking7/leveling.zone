@@ -48,7 +48,7 @@ Each upstream request has a five-second timeout, the complete server lookup has 
 
 ## Brand Commitments
 
-The displayed name remains **ORBIT / 地址观测**. The current product is a lightweight, narrow, IP.SB-referenced utility: white default canvas, optional dark theme, self-hosted Space Grotesk, system monospace for network data, 12px bordered record panels, and no shadows. The previous ASCII globe, serif-led editorial world, advertisements, example shortcuts, and fictional recent history are no longer rendered commitments. The portable visual specification is the lowercase canonical [design.md](design.md); the route-specific brief is [IP.SB direction](docs/design/ip-sb-direction.md).
+The displayed name remains **ORBIT / 地址观测**. The current product is a lightweight, narrow, IP.SB-referenced utility: white default canvas, optional dark theme, self-hosted Space Grotesk and OpenTUI Mono, 12px bordered record panels, and no shadows. The previous ASCII globe, serif-led editorial world, advertisements, example shortcuts, and fictional recent history are no longer rendered commitments. The portable visual specification is the lowercase canonical [design.md](design.md); the route-specific brief is [IP.SB direction](docs/design/ip-sb-direction.md).
 
 ## Product Principles
 
@@ -64,4 +64,4 @@ The displayed name remains **ORBIT / 地址观测**. The current product is a li
 - Current UI behavior: `src/components/workspace.tsx`, `src/components/geo-lookup.tsx`, `src/components/whois-lookup.tsx`, and `src/app/myip/page.tsx`.
 - Query, visitor, and RDAP contracts: `src/modules/query`, `src/modules/query/visitor.ts`, and `src/modules/rdap`.
 - Database lifecycle and deployment procedures: `README.md`, `docs/database-updates.md`, and `docs/deployment/`.
-- The approved route-level direction and final implementation review: [IP.SB direction](docs/design/ip-sb-direction.md) and `.impeccable/review/ip-sb-build/finish-review.md`.
+- Route-level direction and acceptance criteria: [IP.SB direction](docs/design/ip-sb-direction.md). Historical local review captures are not current build or deployment evidence.
