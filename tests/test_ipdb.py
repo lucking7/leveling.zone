@@ -297,6 +297,35 @@ class UpdateTests(unittest.TestCase):
             self.update('bad')
         self.assertNotIn('topsecret', str(caught.exception))
 
+    def fake_opener(self, bodies):
+        def response(body):
+            result = mock.MagicMock(status=200, headers={'Content-Length': '8'})
+            result.__enter__.return_value = result
+            result.read.side_effect = [body, b'']
+            return result
+        opener = mock.Mock()
+        opener.open.side_effect = [response(body) for body in bodies]
+        return opener
+
+    def test_truncated_download_is_retried(self):
+        target = self.root / 'download'
+        opener = self.fake_opener([b'part', b'complete'])
+        with mock.patch.object(ipdb.urllib.request, 'build_opener', return_value=opener), \
+             mock.patch.object(ipdb.time, 'sleep'):
+            ipdb.download(self.url + '/source.csv', target, allow_local=True)
+        self.assertEqual(opener.open.call_count, 2)
+        self.assertEqual(target.read_bytes(), b'complete')
+
+    def test_repeated_truncation_fails_with_its_cause(self):
+        target = self.root / 'download'
+        opener = self.fake_opener([b'part'] * 3)
+        with mock.patch.object(ipdb.urllib.request, 'build_opener', return_value=opener), \
+             mock.patch.object(ipdb.time, 'sleep'), \
+             self.assertRaisesRegex(ipdb.Error, 'Empty or truncated download'):
+            ipdb.download(self.url + '/source.csv', target, allow_local=True)
+        self.assertEqual(opener.open.call_count, 3)
+        self.assertFalse(target.exists())
+
     def test_unsafe_remote_http_rejected(self):
         with self.assertRaises(ipdb.Error):
             ipdb.checked_url('http://example.com/source', allow_local=True)

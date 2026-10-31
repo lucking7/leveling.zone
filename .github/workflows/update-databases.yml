@@ -2,7 +2,9 @@ name: Update IP Databases
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    # Monday's run publishes; the other days only download and validate.
+    - cron: '0 0 * * 1'
+    - cron: '0 0 * * 0,2-6'
   workflow_dispatch:
     inputs:
       publish:
@@ -52,7 +54,7 @@ jobs:
             data/db/current/SHA256SUMS
           if-no-files-found: error
       - name: Verify and publish complete Release
-        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        if: github.event.schedule == '0 0 * * 1' || inputs.publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >-

@@ -9,6 +9,7 @@ import csv
 import datetime as dt
 from dataclasses import asdict
 import gzip
+import http.client
 import ipaddress
 import json
 import mmap
@@ -39,6 +40,12 @@ FORMATS = snapshot.FORMATS
 Error = snapshot.Error
 safe_name = snapshot.safe_name
 digest = snapshot.digest
+RETRYABLE_DOWNLOAD_ERRORS = (TimeoutError, ConnectionError, ssl.SSLError, http.client.HTTPException,
+                             urllib.error.URLError)
+
+
+class TruncatedDownload(Error):
+    """The connection ended before the promised body arrived."""
 
 
 def checked_url(url, allow_local=False):
@@ -89,19 +96,20 @@ def download(url, target, max_bytes=MAX_BYTES, token=None, allow_local=False):
                         raise Error('Download exceeds size limit')
                     out.write(chunk)
                 if not count or (expected is not None and count != expected):
-                    raise Error('Empty or truncated download')
+                    raise TruncatedDownload('Empty or truncated download')
             return
         except Exception as exc:
             Path(target).unlink(missing_ok=True)
-            retry = isinstance(exc, (TimeoutError, ConnectionError, urllib.error.URLError))
+            retry = isinstance(exc, (*RETRYABLE_DOWNLOAD_ERRORS, TruncatedDownload))
             if isinstance(exc, urllib.error.HTTPError):
                 retry = exc.code in {429, 500, 502, 503, 504}
                 exc.close()
             if retry and attempt < 2:
                 time.sleep(2**attempt)
                 continue
-            # Never print exception text: HTTP/network errors may embed credential URLs.
-            raise Error('Download failed (' + type(exc).__name__ + ')') from None
+            # Only our own messages are printable: HTTP/network errors may embed credential URLs.
+            detail = str(exc) if isinstance(exc, Error) else type(exc).__name__
+            raise Error('Download failed (' + detail + ')') from None
 
 
 def bounded_copy(source, target, limit):

@@ -39,7 +39,7 @@
 
 ## Release 发布
 
-[workflow](../.github/workflows/update-databases.yml) 每天 UTC 00:00 下载、校验并保存 manifest artifact，也可手动运行。定时任务和手动默认 `publish=false` 都不会创建远端资源；仅手动显式设为 `true` 才发布 Release：
+[workflow](../.github/workflows/update-databases.yml) 每天 UTC 00:00 下载、校验并保存 manifest artifact，也可手动运行。周一的定时任务在校验通过后发布 Release，手动运行时显式设 `publish=true` 也会发布；其余定时任务和手动默认 `publish=false` 不创建远端资源。多个来源每天都变化，因此内容变化不是发布条件；每版约 2.2 GB，旧 Release 不自动清理。
 
 - 只安装 Python 工具、执行测试、更新清单并发布数据库，不依赖 npm 或网站构建。
 - 使用包含 run ID 与 attempt 的新版本号，避免重跑覆盖已有版本。
